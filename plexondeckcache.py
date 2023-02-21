@@ -7,6 +7,7 @@ from itertools import chain
 from plexapi.server import PlexServer
 from plexapi.video import Episode
 
+CACHE_NAME = 'cache'
 PLEX_URL = 'https://plex.yourdomain.domain'
 PLEX_TOKEN = 'tokentokentoken'
 number_episodes = 5
@@ -66,7 +67,7 @@ if __name__ == '__main__':
             continue
         media_file_path = os.path.dirname(fileToCache)
         user_path = media_file_path.replace("/media/", "/mnt/user/")
-        cache_path = user_path.replace("/user/", "/cache/")
+        cache_path = user_path.replace("/user/", "/" + CACHE_NAME + "/")
         user_file_name = user_path + "/" + os.path.basename(fileToCache)
         cache_file_name = cache_path + "/" + os.path.basename(fileToCache)
         if not os.path.exists(cache_path): #If the path that will end up containing the media file does not exist, this lines will create it
