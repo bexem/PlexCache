@@ -14,9 +14,6 @@ processed_files = []
 
 ##################################################################
 # Set the Sections we want to evaluate.                          #
-# Most users will have 1 & 2 as Films & TV, so                   #
-# should be safe to leave 1,2 as the default, rather than        #
-# defaulting to empty meaning handle all libraries.              #
 ##################################################################
 valid_sections = [1,2]
 
