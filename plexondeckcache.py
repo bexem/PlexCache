@@ -21,7 +21,7 @@ CACHE_NAME = 'cache'
 ##################################################################
 # Number of episodes                                             #
 ##################################################################
-number_episodes = 5
+number_episodes = 24
 
 ##################################################################
 # Set the Sections we want to evaluate.                          #
@@ -36,11 +36,6 @@ DAYS_TO_MONITOR = 999
 plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 processed_files = []
 files = []
-
-#The script will exit if someone is watching/using Plex. 
-if plex.sessions():
-    print("Someone is watching something on Plex. The script will exit now.")
-    exit()
 
 def otherusers(user, number_episodes):
     user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
@@ -113,6 +108,14 @@ files.extend(mainuser(number_episodes)) #Main user
 for user in plex.myPlexAccount().users(): #All the other users
     files.extend(otherusers(user, number_episodes))
 
+def find_file_path(user_file_name):
+    filetofind = '"' + user_file_name + '"'
+    for d in sorted([x for x in os.listdir("/mnt/") if x.startswith("disk")]):
+        path = os.path.join("/mnt/" + d, filetofind.replace('/mnt/user/', ''))
+        if os.path.exists(path):
+            return os.path.dirname(path)
+    return ''
+
 
 #Search for subtitle files (any file with similar file name but different extension)
 processed_files = set()
@@ -144,17 +147,18 @@ for count, fileToCache in enumerate(files):
         os.makedirs(cache_path)
         print("Directory created successfully")
     if not os.path.isfile(cache_file_name): 
-        locatefile = f"/mnt/user/system/./locatefileinarray.sh \"{user_file_name}\"" #Locate the file in the array
+        #locatefile = f"/mnt/user/system/./locatefileinarray.sh \"{user_file_name}\"" #Locate the file in the array
+        locatefile = find_file_path(user_file_name)
         disk_path = subprocess.check_output(locatefile, shell=True).strip().decode() 
         disk_file_name = disk_path + "/" + os.path.basename(fileToCache)
         print("______________________________________")
         print(os.path.basename(fileToCache))
         print("File not in the cache drive, beginning the moving process")         
         # ***** Actual command that moves the file(s) *****
-        move = f"mv -v \"{disk_file_name}\" \"{cache_path}\"" # Comment this if you want to test it first (add the "#" before "move")
-        os.system(move) #Comment this if you are debugging
-        if os.system(move) == 0: #Also this
-            print("File moved successfully") #And this one           
+        #move = f"mv -v \"{disk_file_name}\" \"{cache_path}\"" # Comment this if you want to test it first (add the "#" before "move")
+        #os.system(move) #Comment this if you are debugging
+        #if os.system(move) == 0: #Also this
+        #    print("File moved successfully") #And this one           
         # ****** Debug command, useful if you want to test the script frist, otherwise, ignore ****
-        #print("mv -v", disk_file_name, "--> TO -->", cache_path)
+        print("mv -v", disk_file_name, "--> TO -->", cache_path)
 print("The End")
