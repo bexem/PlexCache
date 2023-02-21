@@ -155,10 +155,10 @@ for count, fileToCache in enumerate(files):
         print(os.path.basename(fileToCache))
         print("File not in the cache drive, beginning the moving process")         
         # ***** Actual command that moves the file(s) *****
-        #move = f"mv -v \"{disk_file_name}\" \"{cache_path}\"" # Comment this if you want to test it first (add the "#" before "move")
-        #os.system(move) #Comment this if you are debugging
-        #if os.system(move) == 0: #Also this
-        #    print("File moved successfully") #And this one           
+        move = f"mv -v \"{disk_file_name}\" \"{cache_path}\"" # Comment this if you want to test it first (add the "#" before "move")
+        os.system(move) #Comment this if you are debugging
+        if os.system(move) == 0: #Also this
+            print("File moved successfully") #And this one           
         # ****** Debug command, useful if you want to test the script frist, otherwise, ignore ****
-        print("mv -v", disk_file_name, "--> TO -->", cache_path)
+        #print("mv -v", disk_file_name, "--> TO -->", cache_path)
 print("The End")
