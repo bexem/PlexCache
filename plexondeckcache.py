@@ -37,6 +37,11 @@ plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 processed_files = []
 files = []
 
+#The script will exit if someone is watching/using Plex. 
+if plex.sessions():
+    print("Someone is watching something on Plex. The script will exit now.")
+    exit()
+
 def otherusers(user, number_episodes):
     user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
     user_files = []
