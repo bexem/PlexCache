@@ -6,6 +6,7 @@ from subprocess import check_call
 from itertools import chain
 from plexapi.server import PlexServer
 from plexapi.video import Episode
+from datetime import datetime
 
 CACHE_NAME = 'cache'
 PLEX_URL = 'https://plex.yourdomain.domain'
@@ -13,36 +14,55 @@ PLEX_TOKEN = 'tokentokentoken'
 number_episodes = 5
 processed_files = []
 
+##################################################################
+# Set the Sections we want to evaluate.                          #
+##################################################################
+valid_sections = [1,2]
+
+##################################################################
+# How many days of On Deck do we want to consider?               #
+##################################################################
+DAYS_TO_MONITOR = 999
+
 if __name__ == '__main__':
     plex = PlexServer(PLEX_URL, PLEX_TOKEN)
     files = []
     for video in plex.library.onDeck():
-        #TV Series
-        if isinstance(video, Episode): 
-            for media in video.media:
-                for part in media.parts:
-                    show = video.grandparentTitle 
-                    # Get the library the video belongs to
-                    library_section = video.section()
-                    # Get the episodes of the show in the library
-                    episodes = [e for e in library_section.search(show)[0].episodes()] #Fetches the next 5 episodes
-                    next_episodes = []
-                    current_season = video.parentIndex
-                    files.append((part.file))
-                    for episode in episodes: 
-                        if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < number_episodes:
-                            next_episodes.append(episode) 
-                        if len(next_episodes) == number_episodes:
-                            break
-                    for episode in next_episodes: #Adds the episodes to the list
-                        for media in episode.media:
-                            for part in media.parts:
-                                files.append((part.file)) 
-        #Movies
-        else: 
-            for media in video.media:
-                for part in media.parts:
-                    files.append((part.file))
+        
+        # Apply section filter
+        if video.section().key in valid_sections:
+
+            delta = datetime.now() - video.lastViewedAt
+            
+            if delta.days <= DAYS_TO_MONITOR:
+            
+                #TV Series
+                if isinstance(video, Episode): 
+                    for media in video.media:
+                        for part in media.parts:
+
+                            show = video.grandparentTitle 
+                            # Get the library the video belongs to
+                            library_section = video.section()
+                            # Get the episodes of the show in the library
+                            episodes = [e for e in library_section.search(show)[0].episodes()] #Fetches the next 5 episodes
+                            next_episodes = []
+                            current_season = video.parentIndex
+                            files.append((part.file))
+                            for episode in episodes: 
+                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < number_episodes:
+                                    next_episodes.append(episode) 
+                                if len(next_episodes) == number_episodes:
+                                    break
+                            for episode in next_episodes: #Adds the episodes to the list
+                                for media in episode.media:
+                                    for part in media.parts:
+                                        files.append((part.file)) 
+                #Movies
+                else: 
+                    for media in video.media:
+                        for part in media.parts:
+                            files.append((part.file))
   
     #Search for subtitle files (any file with similar file name but different extension)
     processed_files = set()
