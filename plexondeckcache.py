@@ -13,6 +13,7 @@ from datetime import datetime
 PLEX_URL = 'https://plex.yourdomain.domain'
 PLEX_TOKEN = 'tokentokentoken'
 plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+sessions = plex.sessions()
 
 ##################################################################
 # Number of episodes                                             #
@@ -36,17 +37,26 @@ cache_dir = '/mnt/cache/'
 plex_source = "/media/"
 real_source = "/mnt/user/"
 
+##################################################################
+# Do you want to stop the script if session is active            #
+# or just skip the active iles?                                  #
+# Set it to "no" if you want to exit the script                  #
+##################################################################
+skip = "yes"
+
 #***************************DEBUG**********************************
 # No files will be moved if set to "yes"
-debug = "no"
+debug = "yes"
 #******************************************************************
 
 processed_files = []
 files = []
+files_to_skip = []
 
-if plex.sessions():
-    print('There is an active session. Exiting...')
-    exit()
+if sessions:
+    if skip != "yes":
+        print('There is an active session. Exiting...')
+        exit()
 
 def otherusers(user, number_episodes):
     user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
@@ -119,6 +129,19 @@ files.extend(mainuser(number_episodes)) #Main user
 for user in plex.myPlexAccount().users(): #All the other users
     files.extend(otherusers(user, number_episodes))
 
+if sessions:
+    for session in sessions:
+        # Set the media ID
+        media = str(session.source())
+        media_id = media[media.find(":") + 1:media.find(":", media.find(":") + 1)]
+        # Find the media item with the specified ID
+        media_item = plex.fetchItem(int(media_id))
+        # Get the title of the media item
+        media_title = media_item.title
+        # Get the full path of the media item
+        media_path = media_item.media[0].parts[0].file
+        files_to_skip.append(media_path)
+
 #Search for subtitle files (any file with similar file name but different extension)
 processed_files = set()
 for count, fileToCache in enumerate(files): 
@@ -126,6 +149,10 @@ for count, fileToCache in enumerate(files):
         continue
     processed_files.add(fileToCache)
     directory_path = os.path.dirname(fileToCache)
+    if fileToCache in files_to_skip:
+        print("Those files are currently used, skipping...")
+        print(fileToCache)
+        continue
     directory_path = directory_path.replace(plex_source, real_source)
     file_name, file_ext = os.path.splitext(os.path.basename(fileToCache))
     files_in_dir = os.listdir(directory_path)
@@ -139,6 +166,8 @@ for count, fileToCache in enumerate(files):
 processed_files = set()
 for count, fileToCache in enumerate(files): 
     if fileToCache in processed_files:
+        continue
+    if fileToCache in files_to_skip:
         continue
     media_file_path = os.path.dirname(fileToCache)
     user_path = media_file_path.replace(plex_source, real_source)
