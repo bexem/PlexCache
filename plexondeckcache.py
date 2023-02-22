@@ -14,11 +14,6 @@ PLEX_URL = 'https://plex.yourdomain.domain'
 PLEX_TOKEN = 'tokentokentoken'
 
 ##################################################################
-# Cache name                                                     #
-##################################################################
-CACHE_NAME = 'cache'
-
-##################################################################
 # Number of episodes                                             #
 ##################################################################
 number_episodes = 5
@@ -36,6 +31,15 @@ DAYS_TO_MONITOR = 999
 plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 processed_files = []
 files = []
+##################################################################
+# Directories                                                    #
+##################################################################
+cache_dir = '/mnt/cache/'
+plex_source = "/media/"
+real_source = "/mnt/user/"
+
+#****************************DEBUG??? "yes" or "no"
+debug = "no"
 
 if plex.sessions():
     print('There is an active session. Exiting...')
@@ -119,7 +123,7 @@ for count, fileToCache in enumerate(files):
         continue
     processed_files.add(fileToCache)
     directory_path = os.path.dirname(fileToCache)
-    directory_path = directory_path.replace("/media/", "/mnt/user/")
+    directory_path = directory_path.replace(plex_source, real_source)
     file_name, file_ext = os.path.splitext(os.path.basename(fileToCache))
     files_in_dir = os.listdir(directory_path)
     subtitle_files = [os.path.join(directory_path, file) for file in files_in_dir if file.startswith(file_name) and file != file_name+file_ext]
@@ -134,27 +138,26 @@ for count, fileToCache in enumerate(files):
     if fileToCache in processed_files:
         continue
     media_file_path = os.path.dirname(fileToCache)
-    user_path = media_file_path.replace("/media/", "/mnt/user/")
-    cache_path = user_path.replace("/user/", "/" + CACHE_NAME + "/")
+    user_path = media_file_path.replace(plex_source, real_source)
+    cache_path = user_path.replace(real_source, cache_dir)
     user_file_name = user_path + "/" + os.path.basename(fileToCache)
     cache_file_name = cache_path + "/" + os.path.basename(fileToCache)
     if not os.path.exists(cache_path): #If the path that will end up containing the media file does not exist, this lines will create it
         os.makedirs(cache_path)
     if not os.path.isfile(cache_file_name): 
-        print("_____________************_____________")
-        print("File not in the cache drive, beginning the moving process")
         disk_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/") #Thanks to dada051 suggestion
-        print("______________________________________")
-        ##################################################################
-        # Commands to move the files, comment lines out for debugging    #
-        ##################################################################
-        move = f"mv -v \"{disk_file_name}\" \"{cache_path}\""
-        os.system(move)
-        ##################################################################
-        # END if commands to move the files                              #
-        ##################################################################
-
-        # Debug command, useful if you want to test the script frist
-        #print("mv -v", disk_file_name, "--> TO -->", cache_path)
+        if debug == "yes":
+            print("****Debug is ON, no file will be moved****")
+            print("mv -v", disk_file_name, "--> TO -->", cache_path)
+            print(cache_path)
+            print(user_file_name)
+            print(cache_file_name)
+            print("********************************")
+        else:
+            print("_____________************_____________")
+            print("File not in the cache drive, beginning the moving process")
+            move = f"mv -v \"{disk_file_name}\" \"{cache_path}\""
+            os.system(move)
+            print("______________________________________")
 
 print("Script executed.")
