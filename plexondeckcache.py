@@ -175,6 +175,9 @@ for count, fileToCache in enumerate(files):
     cache_path = user_path.replace(real_source, cache_dir)
     user_file_name = user_path + "/" + os.path.basename(fileToCache)
     cache_file_name = cache_path + "/" + os.path.basename(fileToCache)
+    if debug == "yes":
+        print("This is the media path directly from Plex: (adapt you Plex_source accordingly)")
+        print(fileToCache)
     if not os.path.exists(cache_path): #If the path that will end up containing the media file does not exist, this lines will create it
         os.makedirs(cache_path)
     if not os.path.isfile(cache_file_name): 
@@ -182,6 +185,7 @@ for count, fileToCache in enumerate(files):
         if debug == "yes":
             print("****Debug is ON, no file will be moved****")
             print("Moving", disk_file_name, "--> TO -->", cache_path)
+            print(FileToCache)
             print("Cache file path:", cache_path)
             print("User file name:", user_file_name)
             print("Disk file name:", disk_file_name)
