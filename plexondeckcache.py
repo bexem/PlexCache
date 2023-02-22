@@ -151,10 +151,11 @@ for count, fileToCache in enumerate(files):
         disk_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/") #Thanks to dada051 suggestion
         if debug == "yes":
             print("****Debug is ON, no file will be moved****")
-            print("mv -v", disk_file_name, "--> TO -->", cache_path)
-            print(cache_path)
-            print(user_file_name)
-            print(cache_file_name)
+            print("Moving", disk_file_name, "--> TO -->", cache_path)
+            print("Cache file path:", cache_path)
+            print("User file name:", user_file_name)
+            print("Disk file name:", disk_file_name)
+            print("Cache file name:", cache_file_name)
             print("********************************")
         else:
             print("_____________************_____________")
