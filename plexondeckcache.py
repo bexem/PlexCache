@@ -138,6 +138,7 @@ if sessions:
         media_item = plex.fetchItem(int(media_id))
         # Get the title of the media item
         media_title = media_item.title
+        print("Someone is watching", media_title)
         # Get the full path of the media item
         media_path = media_item.media[0].parts[0].file
         files_to_skip.append(media_path)
