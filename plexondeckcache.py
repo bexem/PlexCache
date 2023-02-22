@@ -12,6 +12,7 @@ from datetime import datetime
 ##################################################################
 PLEX_URL = 'https://plex.yourdomain.domain'
 PLEX_TOKEN = 'tokentokentoken'
+plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 
 ##################################################################
 # Number of episodes                                             #
@@ -28,9 +29,6 @@ valid_sections = [1,2]
 ##################################################################
 DAYS_TO_MONITOR = 999
 
-plex = PlexServer(PLEX_URL, PLEX_TOKEN)
-processed_files = []
-files = []
 ##################################################################
 # Directories                                                    #
 ##################################################################
@@ -38,8 +36,13 @@ cache_dir = '/mnt/cache/'
 plex_source = "/media/"
 real_source = "/mnt/user/"
 
-#****************************DEBUG??? "yes" or "no"
+#***************************DEBUG**********************************
+# No files will be moved if set to "yes"
 debug = "no"
+#******************************************************************
+
+processed_files = []
+files = []
 
 if plex.sessions():
     print('There is an active session. Exiting...')
