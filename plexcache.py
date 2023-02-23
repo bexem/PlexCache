@@ -1,15 +1,14 @@
 import os
-import psutil
-import subprocess
-from subprocess import check_call
-from itertools import chain
+import json
 from plexapi.server import PlexServer
 from plexapi.video import Episode
 from plexapi.myplex import MyPlexAccount
 from datetime import datetime
-import json
 
-with open('settings.json', 'r') as f:
+settings_filename = "settings.json"
+
+# Load existing settings data from file (if it exists)
+with open(settings_filename, 'r') as f:
     settings_data = json.load(f)
 
 PLEX_URL = settings_data['PLEX_URL']
@@ -19,10 +18,12 @@ valid_sections = settings_data['valid_sections']
 users_toggle = settings_data['users_toggle']
 watchlist_toggle = settings_data['watchlist_toggle']
 watchlist_episodes = settings_data['watchlist_episodes']
-DAYS_TO_MONITOR = settings_data['DAYS_TO_MONITOR']
+DAYS_TO_MONITOR = int(settings_data['DAYS_TO_MONITOR'])
 cache_dir = settings_data['cache_dir']
 plex_source = settings_data['plex_source']
 real_source = settings_data['real_source']
+nas_library_folders = settings_data['nas_library_folders']
+plex_library_folders = settings_data['plex_library_folders']
 skip = settings_data['skip']
 debug = settings_data['debug']
 
@@ -47,7 +48,7 @@ def watchlist(watchlist_episodes):
         results = plex.search(item.title)
         # Check if the file is available in the library
         if len(results) > 0:
-            # Access the first result object to get more information about the file
+            # Access the first result object
             file = results[0]
             # Get the section id for the file
             section_id = file.librarySectionID
@@ -58,13 +59,14 @@ def watchlist(watchlist_episodes):
                     episodes = file.episodes()
                     count = 0  # Initialize counter variable
                     if count >= watchlist_episodes:
-                            break 
+                        break
                     if len(episodes) > 0:
                         for episode in episodes[:watchlist_episodes]:
                             if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
                                 count += 1  # Increment the counter variable
                                 user_files.append((episode.media[0].parts[0].file))
-    return user_files or []        
+    return user_files or []
+
 
 def otherusers(user, number_episodes):
     user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
@@ -73,31 +75,32 @@ def otherusers(user, number_episodes):
         if video.section().key in valid_sections:
             delta = datetime.now() - video.lastViewedAt
             if delta.days <= DAYS_TO_MONITOR:
-                if isinstance(video, Episode): #TV Series
+                if isinstance(video, Episode):  # TV Series
                     for media in video.media:
                         for part in media.parts:
-                            show = video.grandparentTitle 
+                            show = video.grandparentTitle
                             # Get the library the video belongs to
                             library_section = video.section()
                             # Get the episodes of the show in the library
-                            episodes = [e for e in library_section.search(show)[0].episodes()] #Fetches the next 5 episodes
+                            episodes = [e for e in library_section.search(show)[0].episodes()]  # Fetches the next 5 episodes
                             next_episodes = []
                             current_season = video.parentIndex
                             user_files.append((part.file))
-                            for episode in episodes: 
+                            for episode in episodes:
                                 if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < number_episodes:
-                                    next_episodes.append(episode) 
+                                    next_episodes.append(episode)
                                 if len(next_episodes) == number_episodes:
                                     break
-                            for episode in next_episodes: #Adds the episodes to the list
+                            for episode in next_episodes:  # Adds the episodes
                                 for media in episode.media:
                                     for part in media.parts:
-                                        user_files.append((part.file))        
-                else: #Movies
+                                        user_files.append((part.file))
+                else:  # Movies
                     for media in video.media:
                         for part in media.parts:
                             user_files.append((part.file))
     return user_files or []
+
 
 def mainuser(number_episodes):
     user_files = []
@@ -105,39 +108,41 @@ def mainuser(number_episodes):
         # Apply section filter
         if video.section().key in valid_sections:
             delta = datetime.now() - video.lastViewedAt
-            if delta.days <= DAYS_TO_MONITOR:
-                if isinstance(video, Episode): #TV Series
+            if int(delta.days) <= DAYS_TO_MONITOR:
+                if isinstance(video, Episode):  # TV Series
                     for media in video.media:
                         for part in media.parts:
-                            show = video.grandparentTitle 
+                            show = video.grandparentTitle
                             # Get the library the video belongs to
                             library_section = video.section()
                             # Get the episodes of the show in the library
-                            episodes = [e for e in library_section.search(show)[0].episodes()] #Fetches the next 5 episodes
+                            episodes = [e for e in library_section.search(show)[0].episodes()]  # Fetches the next 5 episodes
                             next_episodes = []
                             current_season = video.parentIndex
                             files.append((part.file))
-                            for episode in episodes: 
-                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < number_episodes:
-                                    next_episodes.append(episode) 
+                            for episode in episodes:
+                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < int(number_episodes):
+                                    next_episodes.append(episode)
                                 if len(next_episodes) == number_episodes:
                                     break
-                            for episode in next_episodes: #Adds the episodes to the list
+                            for episode in next_episodes:  # Adds the episodes
                                 for media in episode.media:
                                     for part in media.parts:
-                                        files.append((part.file)) 
-                else: #Movies
+                                        files.append((part.file))
+                else:  # Movies
                     for media in video.media:
                         for part in media.parts:
                             files.append((part.file))
     return user_files or []
 
-files.extend(mainuser(number_episodes)) #Main user
+
+files.extend(mainuser(number_episodes))  # Main user
+
 if watchlist_toggle == 'yes':
     files.extend(watchlist(watchlist_episodes))
 
 if users_toggle == 'yes':
-    for user in plex.myPlexAccount().users(): #All the other users
+    for user in plex.myPlexAccount().users():  # All the other users
         files.extend(otherusers(user, number_episodes))
 
 
@@ -154,9 +159,20 @@ if sessions:
         media_path = media_item.media[0].parts[0].file
         files_to_skip.append(media_path)
 
-#Search for subtitle files (any file with similar file name but different extension)
+for i, file_path in enumerate(files):
+    # Replace the plex_source with the real_source
+    file_path = file_path.replace(plex_source, real_source)
+    # Determine which library folder is in the file path
+    for j, folder in enumerate(plex_library_folders):
+        if folder in file_path:
+            # Replace the plex library folder with the corresponding NAS library folder
+            file_path = file_path.replace(folder, nas_library_folders[j])
+            break
+    files[i] = file_path
+
+# Search for subtitle files (any file with similar file name but different extension)
 processed_files = set()
-for count, fileToCache in enumerate(files): 
+for count, fileToCache in enumerate(files):
     if fileToCache in processed_files:
         continue
     processed_files.add(fileToCache)
@@ -174,9 +190,9 @@ for count, fileToCache in enumerate(files):
             if subtitle not in files:
                 files.append(subtitle)
 
-#Correct all paths locating the file in the unraid array and move the files to the cache drive                
+# Correct all paths locating the file in the unraid array and move the files to the cache drive
 processed_files = set()
-for count, fileToCache in enumerate(files): 
+for count, fileToCache in enumerate(files):
     if fileToCache in processed_files:
         continue
     if fileToCache in files_to_skip:
@@ -186,10 +202,10 @@ for count, fileToCache in enumerate(files):
     cache_path = user_path.replace(real_source, cache_dir)
     user_file_name = user_path + "/" + os.path.basename(fileToCache)
     cache_file_name = cache_path + "/" + os.path.basename(fileToCache)
-    if not os.path.exists(cache_path): #If the path that will end up containing the media file does not exist, this lines will create it
+    if not os.path.exists(cache_path):  # If the path that will end up containing the media file does not exist, this lines will create it
         os.makedirs(cache_path)
-    if not os.path.isfile(cache_file_name): 
-        disk_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/") #Thanks to dada051 suggestion
+    if not os.path.isfile(cache_file_name):
+        disk_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
         if debug == "yes":
             print("****Debug is ON, no file will be moved****")
             print("Moving", disk_file_name, "--> TO -->", cache_path)

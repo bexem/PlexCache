@@ -1,28 +1,30 @@
 TLDR: Move the media currently On Deck on Plex from the array to the cache (unraid).
 
-This is a script in Python made to help me saving some energy by reducing the need to spin up the array/disk(s) when watching recurrent media, such as a TV series.
-The script moves not only the media (Movies and Shows) that is "On Deck" but also the next 5[^1] episodes of each TV Series (and/or Anime) to the cache (SSD) drive, which is faster and more power-efficient than the regular disk. 
-Additionally, it will also move the subtitles to prevent the need to spin up the entire drive for a small amount of data. 
-This script is designed to work with Unraid, but can be adapted for use with other systems. 
+This is a Python script designed to reduce energy consumption by minimizing the need to spin up the array/disk(s) when watching recurrent media, such as TV series. The script achieves this by moving the media from the OnDeck library of the main user and all other users, and also fetching the next set number of episodes (if the media is a TV show/anime). The script also moves the media from the main user's watchlist and, for each media, its subtitles to prevent the need to spin up the entire drive for a small amount of data.
 
-While I am still new to Python and the code may not be the most efficient, it has been working seamlessly for several weeks (and counting).
+The script is specifically designed to work with Unraid, but it can be adapted to work with other systems. 
 
-To use the script there are different ways but DO NOT forget to change the plex url and token[^2] variables accordingly. 
+You can manually modify the settings in the JSON file or run the script_setup.py file to set it up. The latter can be run on any system as it does not modify directories. 
 
+The setup_script.py fetches the mapped Plex media folders (tvseries, movies, etc.) and asks the user for the respective folders, where the actual media is stored.
+The plexcache.py script assumes the "settings.json" is in the same directory, but you can change it easily at the begging of the script itself, changing the value of settings_filename = "/directory-you-want/settings.json"
+
+With the settings.json generated or manually modified, here some basic instructions on how to run the script on unraid:
 A) Run it on Chronos[^3] (docker container, easily installable from the unraid app store):
 * Allocate another path to the default ones, point it at "/mnt" in both the host and the container. 
 - Once you are in the Chronos web interface: 
   1. Add a new script
   2. Configure how to trigger (personally using cron) the script; 
-  3. List the two requirements (plexapi and psutil) in the Pip requirements box;
+  3. Write plexapi in the Pip requirements box;
   4. Save;
   5. Press "Install pip requirements";
-  6. Past the content of the plexondeckcache.py in the Python script box. 
+  6. Past the content of the plexoncache.py in the Python script box. 
   7. Save. 
   8. Execute (or wait for the script to be triggered); 
   9. Enjoy.
 
 B) Install python directly on Unraid (probably using NerdTools[^4] plugin) but you will need to manually install the two dependency the script requires (plexapi and psutil); and run it by cron (or User Scripts plugin[^5]). I don't advise this method but it works.
+
 
 Thank you to [brimur/preCachePlexOnDeckEpiosodes.py](https://gist.github.com/brimur/95277e75ca399d5d52b61e6aa192d1cd) Your script is what helped and inspired me.
 

@@ -1,15 +1,30 @@
 {
-    "PLEX_URL": "https://yourplex.domain",
-    "PLEX_TOKEN": "ToKeNToKenToKeNToKen",
-    "number_episodes": 5,
-    "valid_sections": [1,2],
+    "PLEX_URL": "https://plexserver.xyz",
+    "PLEX_TOKEN": "tokentokentoken",
+    "plex_source": "/media/",
+    "plex_library_folders": [
+        "movies",
+        "anime",
+        "tvseries"
+    ],
+    "valid_sections": [
+        1,
+        4,
+        2
+    ],
+    "number_episodes": "5",
     "users_toggle": "yes",
     "watchlist_toggle": "no",
-    "watchlist_episodes": 1,
-    "DAYS_TO_MONITOR": 999,
+    "watchlist_episodes": "0",
     "cache_dir": "/mnt/cache/",
-    "plex_source": "/media/",
     "real_source": "/mnt/user/",
-    "skip": "yes",
-    "debug": "no"
+    "nas_library_folders": [
+        "movies",
+        "anime",
+        "tvseries"
+    ],
+    "DAYS_TO_MONITOR": "99",
+    "skip": "skip",
+    "debug": "yes",
+    "firststart": "yes"
 }
