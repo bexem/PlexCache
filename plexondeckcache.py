@@ -7,64 +7,30 @@ from plexapi.server import PlexServer
 from plexapi.video import Episode
 from plexapi.myplex import MyPlexAccount
 from datetime import datetime
+import json
 
-##################################################################
-# Plex URL and TOKEN                                             #
-##################################################################
-PLEX_URL = 'https://plex.yourdomain.domain'
-PLEX_TOKEN = 'tokentokentoken'
-plex = PlexServer(PLEX_URL, PLEX_TOKEN)
-sessions = plex.sessions()
+with open('settings.json', 'r') as f:
+    settings_data = json.load(f)
 
-##################################################################
-# Number of episodes                                             #
-##################################################################
-number_episodes = 5
-
-##################################################################
-# Set the Sections we want to evaluate.                          #
-##################################################################
-valid_sections = [1,2]
-
-##################################################################
-# Fetch onDeck media from other users?                           #
-##################################################################
-users_toggle = 'yes'
-
-##################################################################
-# Watchlist (only main user at the moment)                       #
-##################################################################
-watchlist_toggle = 'no'
-watchlist_episodes = 1
-
-##################################################################
-# How many days of On Deck do we want to consider?               #
-##################################################################
-DAYS_TO_MONITOR = 999
-
-##################################################################
-# Directories                                                    #
-##################################################################
-cache_dir = '/mnt/cache/'
-plex_source = "/media/"
-real_source = "/mnt/user/"
-
-##################################################################
-# Do you want to stop the script if session is active            #
-# or just skip the active iles?                                  #
-# Set it to "no" if you want to exit the script                  #
-##################################################################
-skip = "yes"
-
-#***************************DEBUG*********************************#
-# No files will be moved if set to "yes"                          #
-#*****************************************************************#
-debug = "no"
-
+PLEX_URL = settings_data['PLEX_URL']
+PLEX_TOKEN = settings_data['PLEX_TOKEN']
+number_episodes = settings_data['number_episodes']
+valid_sections = settings_data['valid_sections']
+users_toggle = settings_data['users_toggle']
+watchlist_toggle = settings_data['watchlist_toggle']
+watchlist_episodes = settings_data['watchlist_episodes']
+DAYS_TO_MONITOR = settings_data['DAYS_TO_MONITOR']
+cache_dir = settings_data['cache_dir']
+plex_source = settings_data['plex_source']
+real_source = settings_data['real_source']
+skip = settings_data['skip']
+debug = settings_data['debug']
 
 processed_files = []
 files = []
 files_to_skip = []
+plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+sessions = plex.sessions()
 
 if sessions:
     if skip != "yes":

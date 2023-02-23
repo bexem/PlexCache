@@ -5,7 +5,7 @@ The script moves not only the media (Movies and Shows) that is "On Deck" but als
 Additionally, it will also move the subtitles to prevent the need to spin up the entire drive for a small amount of data. 
 This script is designed to work with Unraid, but can be adapted for use with other systems. 
 
-While I am still new to Python and the code may not be the most efficient, it has been working seamlessly for several days (and counting).
+While I am still new to Python and the code may not be the most efficient, it has been working seamlessly for several weeks (and counting).
 
 To use the script there are different ways but DO NOT forget to change the plex url and token[^2] variables accordingly. 
 

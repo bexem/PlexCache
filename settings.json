@@ -1,0 +1,15 @@
+{
+    "PLEX_URL": "https://yourplex.domain",
+    "PLEX_TOKEN": "ToKeNToKenToKeNToKen",
+    "number_episodes": 5,
+    "valid_sections": [1,2],
+    "users_toggle": "yes",
+    "watchlist_toggle": "no",
+    "watchlist_episodes": 1,
+    "DAYS_TO_MONITOR": 999,
+    "cache_dir": "/mnt/cache/",
+    "plex_source": "/media/",
+    "real_source": "/mnt/user/",
+    "skip": "yes",
+    "debug": "no"
+}
