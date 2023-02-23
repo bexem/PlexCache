@@ -5,6 +5,7 @@ from subprocess import check_call
 from itertools import chain
 from plexapi.server import PlexServer
 from plexapi.video import Episode
+from plexapi.myplex import MyPlexAccount
 from datetime import datetime
 
 ##################################################################
@@ -26,6 +27,17 @@ number_episodes = 5
 valid_sections = [1,2]
 
 ##################################################################
+# Fetch onDeck media from other users?                           #
+##################################################################
+users_toggle = 'yes'
+
+##################################################################
+# Watchlist (only main user at the moment)                       #
+##################################################################
+watchlist_toggle = 'no'
+watchlist_episodes = 1
+
+##################################################################
 # How many days of On Deck do we want to consider?               #
 ##################################################################
 DAYS_TO_MONITOR = 999
@@ -44,10 +56,11 @@ real_source = "/mnt/user/"
 ##################################################################
 skip = "yes"
 
-#***************************DEBUG**********************************
-# No files will be moved if set to "yes"
-debug = "yes"
-#******************************************************************
+#***************************DEBUG*********************************#
+# No files will be moved if set to "yes"                          #
+#*****************************************************************#
+debug = "no"
+
 
 processed_files = []
 files = []
@@ -57,6 +70,35 @@ if sessions:
     if skip != "yes":
         print('There is an active session. Exiting...')
         exit()
+
+
+def watchlist(watchlist_episodes):
+    user_files = []
+    account = MyPlexAccount(PLEX_TOKEN)
+    watchlist = account.watchlist(filter='available')
+    for item in watchlist:
+        # Search for the file in the Plex library
+        results = plex.search(item.title)
+        # Check if the file is available in the library
+        if len(results) > 0:
+            # Access the first result object to get more information about the file
+            file = results[0]
+            # Get the section id for the file
+            section_id = file.librarySectionID
+            if section_id == 1:
+                user_files.append((file.media[0].parts[0].file))
+            if section_id == 2:
+                if file.TYPE == 'show':
+                    episodes = file.episodes()
+                    count = 0  # Initialize counter variable
+                    if count >= watchlist_episodes:
+                            break 
+                    if len(episodes) > 0:
+                        for episode in episodes[:watchlist_episodes]:
+                            if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
+                                count += 1  # Increment the counter variable
+                                user_files.append((episode.media[0].parts[0].file))
+    return user_files or []        
 
 def otherusers(user, number_episodes):
     user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
@@ -125,9 +167,13 @@ def mainuser(number_episodes):
     return user_files or []
 
 files.extend(mainuser(number_episodes)) #Main user
+if watchlist_toggle == 'yes':
+    files.extend(watchlist(watchlist_episodes))
 
-for user in plex.myPlexAccount().users(): #All the other users
-    files.extend(otherusers(user, number_episodes))
+if users_toggle == 'yes':
+    for user in plex.myPlexAccount().users(): #All the other users
+        files.extend(otherusers(user, number_episodes))
+
 
 if sessions:
     for session in sessions:
@@ -138,7 +184,6 @@ if sessions:
         media_item = plex.fetchItem(int(media_id))
         # Get the title of the media item
         media_title = media_item.title
-        print("Someone is watching", media_title)
         # Get the full path of the media item
         media_path = media_item.media[0].parts[0].file
         files_to_skip.append(media_path)
@@ -175,9 +220,6 @@ for count, fileToCache in enumerate(files):
     cache_path = user_path.replace(real_source, cache_dir)
     user_file_name = user_path + "/" + os.path.basename(fileToCache)
     cache_file_name = cache_path + "/" + os.path.basename(fileToCache)
-    if debug == "yes":
-        print("This is the media path directly from Plex: (adapt you Plex_source accordingly)")
-        print(fileToCache)
     if not os.path.exists(cache_path): #If the path that will end up containing the media file does not exist, this lines will create it
         os.makedirs(cache_path)
     if not os.path.isfile(cache_file_name): 
@@ -185,7 +227,6 @@ for count, fileToCache in enumerate(files):
         if debug == "yes":
             print("****Debug is ON, no file will be moved****")
             print("Moving", disk_file_name, "--> TO -->", cache_path)
-            print(FileToCache)
             print("Cache file path:", cache_path)
             print("User file name:", user_file_name)
             print("Disk file name:", disk_file_name)
