@@ -87,7 +87,7 @@ def otherusers(user, number_episodes):
                             current_season = video.parentIndex
                             user_files.append((part.file))
                             for episode in episodes:
-                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < (number_episodes):
+                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) <= (number_episodes):
                                     next_episodes.append(episode)
                                 if len(next_episodes) == number_episodes:
                                     break
@@ -121,7 +121,7 @@ def mainuser(number_episodes):
                             current_season = video.parentIndex
                             files.append((part.file))
                             for episode in episodes:
-                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < (number_episodes):
+                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) <= (number_episodes):
                                     next_episodes.append(episode)
                                 if len(next_episodes) == number_episodes:
                                     break
