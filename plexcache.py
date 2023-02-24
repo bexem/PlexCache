@@ -5,7 +5,7 @@ from plexapi.video import Episode
 from plexapi.myplex import MyPlexAccount
 from datetime import datetime
 
-settings_filename = "settings.json"
+settings_filename = "/mnt/user/system/PlexCache/settings.json"
 
 # Load existing settings data from file (if it exists)
 with open(settings_filename, 'r') as f:
@@ -13,7 +13,7 @@ with open(settings_filename, 'r') as f:
 
 PLEX_URL = settings_data['PLEX_URL']
 PLEX_TOKEN = settings_data['PLEX_TOKEN']
-number_episodes = settings_data['number_episodes']
+number_episodes = int(settings_data['number_episodes'])
 valid_sections = settings_data['valid_sections']
 users_toggle = settings_data['users_toggle']
 watchlist_toggle = settings_data['watchlist_toggle']
@@ -77,7 +77,7 @@ def otherusers(user, number_episodes):
             if delta.days <= DAYS_TO_MONITOR:
                 if isinstance(video, Episode):  # TV Series
                     for media in video.media:
-                        for part in media.parts:
+                        for part in media.parts:                   
                             show = video.grandparentTitle
                             # Get the library the video belongs to
                             library_section = video.section()
@@ -87,7 +87,7 @@ def otherusers(user, number_episodes):
                             current_season = video.parentIndex
                             user_files.append((part.file))
                             for episode in episodes:
-                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < int(number_episodes):
+                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < (number_episodes):
                                     next_episodes.append(episode)
                                 if len(next_episodes) == number_episodes:
                                     break
@@ -121,7 +121,7 @@ def mainuser(number_episodes):
                             current_season = video.parentIndex
                             files.append((part.file))
                             for episode in episodes:
-                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < int(number_episodes):
+                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < (number_episodes):
                                     next_episodes.append(episode)
                                 if len(next_episodes) == number_episodes:
                                     break
