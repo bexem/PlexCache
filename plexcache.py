@@ -215,7 +215,8 @@ for count, fileToCache in enumerate(files):
             print("Cache file name:", cache_file_name)
             print("********************************")
         else:
-            print("_____________************_____________")
+            print("**************************************")
+            print(os.path.basename(fileToCache))
             print("File not in the cache drive, beginning the moving process")
             move = f"mv -v \"{disk_file_name}\" \"{cache_path}\""
             os.system(move)
