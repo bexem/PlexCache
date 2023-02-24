@@ -34,7 +34,7 @@ plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 sessions = plex.sessions()
 
 if sessions:
-    if skip != "yes":
+    if skip != "skip":
         print('There is an active session. Exiting...')
         exit()
 
@@ -87,7 +87,7 @@ def otherusers(user, number_episodes):
                             current_season = video.parentIndex
                             user_files.append((part.file))
                             for episode in episodes:
-                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < number_episodes:
+                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < int(number_episodes):
                                     next_episodes.append(episode)
                                 if len(next_episodes) == number_episodes:
                                     break
