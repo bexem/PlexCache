@@ -1,20 +1,27 @@
 import json
 import os
+import sys
 import requests
 from plexapi.server import PlexServer
+
 settings_filename = "settings.json"
+
+print("This is the setup script for plexcache.py")
 
 # Load existing settings data from file (if it exists)
 if os.path.exists(settings_filename):
     try:
         with open(settings_filename, 'r') as f:
             settings_data = json.load(f)
+            print("Settings file opened successfully.")
     except json.decoder.JSONDecodeError:
         # If the file exists but is not a valid JSON file, initialize an empty JSON object
         settings_data = {}
+        print("Settings file initialised successfully.")
+else:
+    sys.exit("File not found, plex configure the variable settings_filename properly. Exiting...")
 
-
-def is_valid_plex_url(url):
+def is_valid_plex_url(url): #Function to check if the given plex url is valid
     try:
         response = requests.get(url)
         if 'X-Plex-Protocol' in response.headers:
@@ -131,11 +138,11 @@ def setup():
     with open(settings_filename, 'w') as f:
         json.dump(settings_data, f, indent=4)
 
-    print('Setup complete!')
+    print('Setup complete! Now you should be able execute the main script.')
 
 
 if settings_data.get('firststart') == 'yes':
     settings_data = {}
     setup()
 else:
-    print("Configuration exists, continuing...\n")
+    print("Configuration exists and seems to be valid, now you should be able execute the main script.\n")

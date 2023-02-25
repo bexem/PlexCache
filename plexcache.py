@@ -5,11 +5,15 @@ from plexapi.video import Episode
 from plexapi.myplex import MyPlexAccount
 from datetime import datetime
 
-settings_filename = "/mnt/user/system/PlexCache/settings.json"
+settings_filename = "settings.json"
 
-# Load existing settings data from file (if it exists)
-with open(settings_filename, 'r') as f:
-    settings_data = json.load(f)
+if os.path.exists(settings_filename):
+    print("Settings file loaded successfully. Proceding...")
+    with open(settings_filename, 'r') as f:
+        settings_data = json.load(f)
+else:
+    sys.exit("Settings file not found, please configure the variable settings_filename properly, or run the setup script. Exiting...")
+
 
 PLEX_URL = settings_data['PLEX_URL']
 PLEX_TOKEN = settings_data['PLEX_TOKEN']
