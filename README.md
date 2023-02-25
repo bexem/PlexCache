@@ -4,10 +4,8 @@ This is a Python script designed to reduce energy consumption by minimizing the 
 
 The script is specifically designed to work with Unraid, but it can be adapted to work with other systems. 
 
-You can manually modify the settings in the JSON file or run the script_setup.py file to set it up. The latter can be run on any system as it does not modify directories. 
-
-The setup_script.py fetches the mapped Plex media folders (tvseries, movies, etc.) and asks the user for the respective folders, where the actual media is stored.
-The plexcache.py script assumes the "settings.json" is in the same directory, but you can change it easily at the begging of the script itself, changing the value of settings_filename = "/directory-you-want/settings.json"
+The script fetches the mapped Plex media paths (tvseries, movies, etc.) and asks the user for the respective folders, where the actual media is stored.
+The script also assumes the "settings.json" is in the same directory, but you can change it easily at the begging of the script itself, changing the value of settings_filename = "/directory-you-want/settings.json"
 
 With the settings.json generated or manually modified, here some basic instructions on how to run the script on unraid:
 A) Run it on Chronos[^3] (docker container, easily installable from the unraid app store):
