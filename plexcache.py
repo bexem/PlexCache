@@ -5,27 +5,39 @@ from plexapi.video import Episode
 from plexapi.myplex import MyPlexAccount
 from datetime import datetime
 
-settings_filename = "/mnt/user/system/PlexCache/settings.json"
+settings_filename = "settings.json"
 
-# Load existing settings data from file (if it exists)
-with open(settings_filename, 'r') as f:
-    settings_data = json.load(f)
+if os.path.exists(settings_filename):
+    # Load existing settings data from file (if it exists)
+    with open(settings_filename, 'r') as f:
+        settings_data = json.load(f)
+else:
+    print("Settings file not found, please fix the variable accordingly.")
+    exit()
 
-PLEX_URL = settings_data['PLEX_URL']
-PLEX_TOKEN = settings_data['PLEX_TOKEN']
-number_episodes = int(settings_data['number_episodes'])
-valid_sections = settings_data['valid_sections']
-users_toggle = settings_data['users_toggle']
-watchlist_toggle = settings_data['watchlist_toggle']
-watchlist_episodes = int(settings_data['watchlist_episodes'])
-DAYS_TO_MONITOR = int(settings_data['DAYS_TO_MONITOR'])
-cache_dir = settings_data['cache_dir']
-plex_source = settings_data['plex_source']
-real_source = settings_data['real_source']
-nas_library_folders = settings_data['nas_library_folders']
-plex_library_folders = settings_data['plex_library_folders']
-skip = settings_data['skip']
-debug = settings_data['debug']
+try:
+    PLEX_URL = settings_data['PLEX_URL']
+    PLEX_TOKEN = settings_data['PLEX_TOKEN']
+    number_episodes = int(settings_data['number_episodes'])
+    valid_sections = settings_data['valid_sections']
+    users_toggle = settings_data['users_toggle']
+    watchlist_toggle = settings_data['watchlist_toggle']
+    watchlist_episodes = int(settings_data['watchlist_episodes'])
+    DAYS_TO_MONITOR = int(settings_data['DAYS_TO_MONITOR'])
+    cache_dir = settings_data['cache_dir']
+    plex_source = settings_data['plex_source']
+    real_source = settings_data['real_source']
+    nas_library_folders = settings_data['nas_library_folders']
+    plex_library_folders = settings_data['plex_library_folders']
+    unraid = settings_data['unraid']
+    skip = settings_data['skip']
+    debug = settings_data['debug']
+except KeyError as e:
+    print(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
+    exit()
+    # Run some code to handle the missing setting here
+    # For example, you could set a default value or prompt the user for input
+
 
 processed_files = []
 files = []
@@ -205,7 +217,10 @@ for count, fileToCache in enumerate(files):
     if not os.path.exists(cache_path):  # If the path that will end up containing the media file does not exist, this lines will create it
         os.makedirs(cache_path)
     if not os.path.isfile(cache_file_name):
-        disk_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
+        if unraid == 'yes':
+            disk_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
+        else:
+            disk_file_name = user_file_name
         if debug == "yes":
             print("****Debug is ON, no file will be moved****")
             print("Moving", disk_file_name, "--> TO -->", cache_path)
@@ -220,5 +235,10 @@ for count, fileToCache in enumerate(files):
             move = f"mv -v \"{disk_file_name}\" \"{cache_path}\""
             os.system(move)
             print("______________________________________")
-
+    else:
+        if debug == "yes":
+            print("****Debug is ON, File already exists on the cache****")
+            print("Cache file path:", cache_path)
+            print("Cache file name:", cache_file_name)
+            print("********************************")
 print("Script executed.")

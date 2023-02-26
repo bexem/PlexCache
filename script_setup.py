@@ -3,16 +3,30 @@ import os
 import requests
 from plexapi.server import PlexServer
 
-settings_filename = "settings.json"
+settings_filename = 'settings.json'
 
-# Load existing settings data from file (if it exists)
-if os.path.exists(settings_filename):
-    try:
-        with open(settings_filename, 'r') as f:
-            settings_data = json.load(f)
-    except json.decoder.JSONDecodeError:
-        # If the file exists but is not a valid JSON file, initialize an empty JSON object
-        settings_data = {}
+while True:
+    if os.path.exists(settings_filename):
+        try:
+            with open(settings_filename, 'r') as f:
+                settings_data = json.load(f)
+                print("Setting file loaded successfully!\n")
+        except json.decoder.JSONDecodeError:
+            # If the file exists but is not a valid JSON file, initialize an empty JSON object
+            settings_data = {}
+            print("Setting file initialized successfully!\n")
+    else:
+        print("Settings file doesn't exist, please check the path:\n")
+        print(settings_filename)
+        creation = input("\n If it correct, do you want to create the file? (default = no)") or 'no'
+        if creation.lower() == "y" or creation.lower() == "yes":
+            with open(settings_filename, 'w') as f:
+                json.dump({}, f)
+                settings_data = {}
+                print("Setting file created successfully!\n")
+            break  # exit the loop if the file was created
+        else:
+            exit(0)  # exit the script if the file was not created     
 
 
 def is_valid_plex_url(url):
@@ -92,6 +106,10 @@ def setup():
             watchlist_episodes = input('How many episodes do you want fetch (watchlist) (default: 1)? ') or '1'
             settings_data['watchlist_episodes'] = watchlist_episodes
 
+    if 'DAYS_TO_MONITOR' not in settings_data:
+        days = input('\nMaximum age of the media onDeck to be fetched? (default: 99)') or '99'
+        settings_data['DAYS_TO_MONITOR'] = days
+
     if 'cache_dir' not in settings_data:
         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '')  or '/mnt/cache/'
         settings_data['cache_dir'] = cache_dir
@@ -111,16 +129,16 @@ def setup():
             nas_library_folder.append(folder_name)
         settings_data['nas_library_folders'] = nas_library_folder
 
-    if 'DAYS_TO_MONITOR' not in settings_data:
-        days = input('\nMaximum age of the media onDeck to be fetched? (default: 99)') or '99'
-        settings_data['DAYS_TO_MONITOR'] = days
+    if 'unraid' not in settings_data:
+        unraid = input('\nAre you planning to run plexache.py on unraid? (default: yes) [Y/n] ')  or 'yes'
+        settings_data['unraid'] = unraid
 
     if 'skip' not in settings_data:
         session = input('\nIf there is an active session in plex (someone is playing a media) do you want to exit the script or just skip the playing media? (default: skip) [skip/exit] ') or 'skip'
         settings_data['skip'] = session
 
     if 'debug' not in settings_data:
-        debug = input('\nDo you want to debug the script? No data will actually be moved. (default: no) ') or 'no'
+        debug = input('\nDo you want to debug the script? No data will actually be moved. (default: no) [Y/n]') or 'no'
         if debug.lower() == "y":
             settings_data['debug'] = 'yes'
         else:
@@ -132,11 +150,17 @@ def setup():
     with open(settings_filename, 'w') as f:
         json.dump(settings_data, f, indent=4)
 
-    print('Setup complete!')
+    print("Setup complete! You can now run the plexcache.py script. \n")
+    print("If you are happy with your current settings, you can discard this script entirely. \n")
+    print("So Long, and Thanks for All the Fish!")
 
 
-if settings_data.get('firststart') == 'yes':
+if settings_data.get('firststart') == 'yes' or settings_data.get('firststart') != 'no':
+    print("Please answer the following questions: \n")
     settings_data = {}
     setup()
 else:
-    print("Configuration exists, continuing...\n")
+    print("Configuration exists, you can now run the plexcache.py script. \n")
+    print("If you want to configure the settings again, manually change the variable firstart to off.")
+    print("If instead you are happy with your current settings, you can discard this script entirely. \n")
+    print("So Long, and Thanks for All the Fish!")
