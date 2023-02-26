@@ -11,10 +11,12 @@ while True:
             with open(settings_filename, 'r') as f:
                 settings_data = json.load(f)
                 print("Setting file loaded successfully!\n")
+                break
         except json.decoder.JSONDecodeError:
             # If the file exists but is not a valid JSON file, initialize an empty JSON object
             settings_data = {}
             print("Setting file initialized successfully!\n")
+            break
     else:
         print("Settings file doesn't exist, please check the path:\n")
         print(settings_filename)
@@ -155,7 +157,7 @@ def setup():
     print("So Long, and Thanks for All the Fish!")
 
 
-if settings_data.get('firststart') == 'yes' or settings_data.get('firststart') != 'no':
+if settings_data.get('firststart') == 'yes' or settings_data.get('firststart') != 'off':
     print("Please answer the following questions: \n")
     settings_data = {}
     setup()
