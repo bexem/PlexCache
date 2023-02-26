@@ -19,7 +19,7 @@ The instructions below are applicable to the main operating systems:
 - Open the Command Prompt or Terminal and type "pip install plexapi requests" and hit enter. This will download and install the "plexapi" and "requests" modules.
 4) Run the Python Script: 
 - Once you have installed Python and the required modules, you can run the Python script. Navigate to the directory where the script is located, and open the Command Prompt or Terminal. Type "python script_setup.py" and hit enter. This will execute the Python script.
-Note: In some cases, you may need to use "python3" instead of "python" if you have both Python 2 and 3 installed on your system.
+**Note: In some cases, you may need to use "python3" instead of "python" if you have both Python 2 and 3 installed on your system.**
 
 
 # How to run the main script:
