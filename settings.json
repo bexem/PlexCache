@@ -1,6 +1,6 @@
 {
-    "PLEX_URL": "https://plexserver.xyz",
-    "PLEX_TOKEN": "tokentokentoken",
+    "PLEX_URL": "https://plex.server.domain",
+    "PLEX_TOKEN": "ThisIsAFantasticToken",
     "plex_source": "/media/",
     "plex_library_folders": [
         "movies",
@@ -16,6 +16,7 @@
     "users_toggle": "yes",
     "watchlist_toggle": "no",
     "watchlist_episodes": "0",
+    "DAYS_TO_MONITOR": "99",
     "cache_dir": "/mnt/cache/",
     "real_source": "/mnt/user/",
     "nas_library_folders": [
@@ -23,7 +24,7 @@
         "anime",
         "tvseries"
     ],
-    "DAYS_TO_MONITOR": "99",
+    "unraid": "yes",
     "skip": "skip",
     "debug": "yes",
     "firststart": "yes"
