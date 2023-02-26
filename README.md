@@ -22,7 +22,7 @@ The instructions below are applicable to the main operating systems:
 Note: In some cases, you may need to use "python3" instead of "python" if you have both Python 2 and 3 installed on your system.
 
 
-# How to run the main script:**
+# How to run the main script:
 
 **Be sure you have the settings file configured accordingly before running the script.**
 
