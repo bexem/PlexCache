@@ -1,14 +1,29 @@
-TLDR: Move the media currently On Deck on Plex from the array to the cache. 
+**TLDR:** Move the media currently On Deck on Plex from the array to the cache. 
 
-This is a Python script designed to reduce energy consumption by minimizing the need to spin up the array/disk(s) when watching recurrent media, such as TV series. The script achieves this by moving the media from the OnDeck library of the main user and all other users, and also fetching the next set number of episodes (if the media is a TV show/anime). The script also moves the media from the main user's watchlist and, for each media, its subtitles to prevent the need to spin up the entire drive for a small amount of data.
+This Python script reduces energy consumption by minimizing the need to spin up the array/disk(s) when watching recurrent media like TV series. It achieves this by moving the media from the OnDeck library of the main user, all other users, and the main user's watchlist. For TV shows/anime, it also fetches the next specified number of episodes.
 
-The script was initially developed for Unraid, but it is compatible with other systems as well. 
-The project contains two scripts: a setup script and a main script. 
-The setup script needs to be executed only once and requires user input, which cannot be provided in Chronos (recommended way to run the script on unraid) due to its limitations. 
-The setup script fetches the mapped Plex media paths and prompts the user to specify the respective folders where the media is stored. 
-Nonetheless, if the setup script is not needed, the user can manually modify the settings.json file using a text editor.
+The project contains two scripts: a setup script and a main script. The setup script prompts the user to specify the folders where the media is stored and fetches the mapped Plex media paths and will create the settings file, which can also be created/edited manually.
 
-Both scripts assume that the "settings.json" file is located in the same directory. However, this can be easily changed by editing the "settings_filename" variable in the script itself.
+# The script can:
+
+- Fetch a specified number of episodes of the Shows on "onDeck" and the main user's watchlist.
+- Search only the specified libraries.
+- Check for free space before moving any file.
+- Move watched media present on the cache drive back to the array.
+- Filter media older than a specified number of days.
+- Run in debug mode for testing.
+- Exit the script if any active session or skip the currently playing media.
+
+Note that the **"settings.json"** file is assumed to be located in the same directory, but this can be changed by editing the "settings_filename" variable in the script. 
+The script was initially developed for Unraid but is compatible with other systems.
+
+# Disclaimer:
+
+Before you dive in, here's a reality check: this script comes without any warranties, guarantees, or magic powers.
+
+By using this script, you accept that you're responsible for any consequences that may result. The author will not be held liable for data loss, corruption, or any other problems you may encounter. So, it's on you to make sure you have backups and test this script thoroughly before you unleash its awesome power.
+
+Now, go ahead and take script for a spin.
 
 # How to run the setup script:
 
@@ -24,21 +39,21 @@ The instructions below are applicable to the main operating systems:
 - Once you have installed Python and the required modules, you can run the Python script. Navigate to the directory where the script is located, and open the Command Prompt or Terminal. Type "python script_setup.py" and hit enter. This will execute the Python script.
 **Note: In some cases, you may need to use "python3" instead of "python" if you have both Python 2 and 3 installed on your system.**
 
-
 # How to run the main script:
 
 **Be sure you have the settings file configured accordingly before running the script.**
 
-1) For users of Unraid, the following instructions can be followed to execute the script:
-    - A) Execute it on Chronos[^3] (docker container), which can be installed from the Unraid app store:
+**1)** For users of Unraid, the following instructions can be followed to execute the script:
+    - A) Install Python directly on Unraid (using NerdTools[^4] plugin) and manually install the required dependencies (plexapi). Then, run the script using cron or the User Scripts plugin[^5]. However, this method is not officially recommended, but I have personally noticed some random authentication errors in chronos.
+  
+    - B) Execute it on Chronos[^3] (docker container), which can be installed from the Unraid app store:
         - Allocate an additional path to the default ones and direct it to "/mnt" in both the host and the container. Also, set the container network type: to Host. 
         - Create a new script, configure how to trigger it (preferably using cron), and paste the contents of the plexoncache.py script in the Python script box, change the path of the settings_filename variable accordingly before proceeding.
         - Install the required modules by typing "plexapi" in the Pip requirements box and pressing "Install pip requirements."
         - Save the script and execute it.
 
-    - B) Install Python directly on Unraid (using NerdTools[^4] plugin) and manually install the required dependencies (plexapi). Then, run the script using cron or the User Scripts plugin[^5]. However, this method is not recommended.
 
-2) For every other user, use the instruction of the setup script, the difference is you only need the "plexapi" module to be installed.
+**2)** For every other user, use the instruction of the setup script, the only difference is the "plexapi" module is the only one required.
 
 
 Thank you to brimur[^1], your script is what helped and inspired me in the first place, and thank you to every single one which contributed and even just commented about the project. ❤️
