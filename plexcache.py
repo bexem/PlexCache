@@ -48,6 +48,7 @@ files = []
 files_to_skip = []
 watched_files = []
 watched_to_remove = []
+media_to_move = []
 plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 sessions = plex.sessions()
 
@@ -242,9 +243,16 @@ if watched_move == 'yes':
             watched_to_remove.append(file)
     watched_size = sum(os.path.getsize(file) for file in watched_to_remove)
 
+for file in files:
+    media_file_path = os.path.dirname(file)
+    user_path = media_file_path.replace(plex_source, real_source)
+    cache_path = user_path.replace(real_source, cache_dir)
+    cache_file_name = cache_path + "/" + os.path.basename(file)
+    if not os.path.isfile(cache_file_name):
+        media_to_move.append(file)
 
 #Check for free space before attempting to move the files
-total_size = sum(os.path.getsize(file) for file in files)
+total_size = sum(os.path.getsize(file) for file in media_to_move)
 free_space = os.statvfs(cache_dir).f_bfree * os.statvfs(cache_dir).f_frsize
 print(f"Free space on cache drive: {free_space / (1024**3):.2f} GB")
 print(f"Total size of media files: {total_size / (1024**3):.2f} GB")
@@ -314,5 +322,5 @@ for count, fileToCache in enumerate(files):
             print("Cache file name:", cache_file_name)
             print("********************************")
 
-exit("Script executed.")
+print("Script executed.")
 # Thank you for using my script github.com/bexem/PlexOnDeckCache
