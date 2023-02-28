@@ -43,17 +43,17 @@ The instructions below are applicable to the main operating systems:
 
 **Be sure you have the settings file configured accordingly before running the script.**
 
-**1)** For users of Unraid, the following instructions can be followed to execute the script:
+1) For users of Unraid, the following instructions can be followed to execute the script:
+
     - A) Install Python directly on Unraid (using NerdTools[^4] plugin) and manually install the required dependencies (plexapi). Then, run the script using cron or the User Scripts plugin[^5]. However, this method is not officially recommended, but I have personally noticed some random authentication errors in chronos.
-  
-    - B) Execute it on Chronos[^3] (docker container), which can be installed from the Unraid app store:
-        - Allocate an additional path to the default ones and direct it to "/mnt" in both the host and the container. Also, set the container network type: to Host. 
-        - Create a new script, configure how to trigger it (preferably using cron), and paste the contents of the plexoncache.py script in the Python script box, change the path of the settings_filename variable accordingly before proceeding.
-        - Install the required modules by typing "plexapi" in the Pip requirements box and pressing "Install pip requirements."
-        - Save the script and execute it.
+    
+    - B) Execute it on Chronos[^3] (docker container), which can be installed from the Unraid app store:   
+            - Allocate an additional path to the default ones and direct it to "/mnt" in both the host and the container. Also, set the container network type: to Host. 
+            - Create a new script, configure how to trigger it (preferably using cron), and paste the contents of the plexoncache.py script in the Python script box, change the path of the settings_filename variable accordingly before proceeding.
+            - Install the required modules by typing "plexapi" in the Pip requirements box and pressing "Install pip requirements."
+            - Save the script and execute it.
 
-
-**2)** For every other user, use the instruction of the setup script, the only difference is the "plexapi" module is the only one required.
+2) For every other user, use the instruction of the setup script, the only difference is the "plexapi" module is the only one required.
 
 
 Thank you to brimur[^1], your script is what helped and inspired me in the first place, and thank you to every single one which contributed and even just commented about the project. ❤️
