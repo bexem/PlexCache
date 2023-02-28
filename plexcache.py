@@ -5,7 +5,7 @@ from plexapi.video import Episode
 from plexapi.myplex import MyPlexAccount
 from datetime import datetime
 
-settings_filename = "settings.json"
+settings_filename = "settings_test.json"
 
 if os.path.exists(settings_filename):
     # Load existing settings data from file (if it exists)
