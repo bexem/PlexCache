@@ -15,6 +15,7 @@ The project contains two scripts: a setup script and a main script. The setup sc
 - Exit the script if any active session or skip the currently playing media.
 
 Note that the **"settings.json"** file is assumed to be located in the same directory, but this can be changed by editing the "settings_filename" variable in the script. 
+
 The script was initially developed for Unraid but is compatible with other systems.
 
 # Disclaimer:
@@ -36,7 +37,7 @@ The instructions below are applicable to the main operating systems:
 3) Install the "plexapi" and "requests" modules: 
 - Open the Command Prompt or Terminal and type "pip install plexapi requests" and hit enter. This will download and install the "plexapi" and "requests" modules.
 4) Run the Python Script: 
-- Once you have installed Python and the required modules, you can run the Python script. Navigate to the directory where the script is located, and open the Command Prompt or Terminal. Type "python script_setup.py" and hit enter. This will execute the Python script.
+- Once you have installed Python and the required modules, you can run the Python script. Navigate to the directory where the script is located, and open the Command Prompt or Terminal. Type "python setup.py" and hit enter. This will execute the Python script.
 **Note: In some cases, you may need to use "python3" instead of "python" if you have both Python 2 and 3 installed on your system.**
 
 # How to run the main script:
