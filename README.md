@@ -57,7 +57,8 @@ The instructions below are applicable to the main operating systems:
 2) For every other user, use the instruction of the setup script, the only difference is the "plexapi" module is the only one required.
 
 
-Thank you to brimur[^1], your script is what helped and inspired me in the first place, and thank you to every single one which contributed and even just commented about the project. ❤️
+# Thank you:
+To brimur[^1], your script is what helped and inspired me in the first place, **and thank you** to every single one which contributed and even just commented about the project. ❤️
 
 
 [^1]: [brimur/preCachePlexOnDeckEpiosodes.py](https://gist.github.com/brimur/95277e75ca399d5d52b61e6aa192d1cd)
