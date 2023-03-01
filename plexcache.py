@@ -9,6 +9,7 @@ from datetime import datetime
 # Examples: 
 # # "settings.json"
 # # "/myfolder/settings.json"
+# # "/mnt/user/system/PlexCache/settings.json"
 # # "myspecialfilename.json"
 # # "/myfolder/myspecialfilename.json"
 settings_filename = "settings.json"
@@ -232,6 +233,7 @@ if watched_move == 'yes':
                 else:
                     watched_files.append(video.media[0].parts[0].file)
     # Moves watched media from the cache drive to the slow drives
+    print("Moving watched media file:")
     for file in watched_files:
         media_file_path = os.path.dirname(file)
         user_path = media_file_path.replace(plex_source, real_source)
@@ -247,14 +249,14 @@ if watched_move == 'yes':
                 disk_file_name = user_file_name
             if debug == "yes":
                 print("Debug mode is ON:")
-                print("Moving", cache_path, "--> TO -->", disk_file_name)
+                print("Moving", cache_file_name, "--> TO -->", disk_file_name)
                 print("______________________________________")
             else:
-                print("Moving watched media file:")
-                move = f"mv -v \"{cache_path}\" \"{disk_file_name}\""
+                
+                move = f"mv -v \"{cache_file_name}\" \"{disk_file_name}\""
                 os.system(move)
-                print("______________________________________")
             watched_to_remove.append(file)
+    print("______________________________________")
 
 for file in files:
     media_file_path = os.path.dirname(file)
