@@ -12,7 +12,7 @@ from datetime import datetime
 # # "/mnt/user/system/PlexCache/settings.json"
 # # "myspecialfilename.json"
 # # "/myfolder/myspecialfilename.json"
-settings_filename = "settings.json"
+settings_filename = "/mnt/user/system/PlexCache/settings.json"
 
 # Check if the above file exists
 if os.path.exists(settings_filename):
@@ -61,7 +61,6 @@ if sessions:
 # Function to fetch watchlist media files for the main user
 def watchlist(watchlist_episodes):
     print("Fetching main user's watchlist media...")
-    print("______________________________________")
     user_files = []
     account = MyPlexAccount(PLEX_TOKEN)
     watchlist = account.watchlist(filter='available')
@@ -94,8 +93,7 @@ def watchlist(watchlist_episodes):
 def otherusers(user, number_episodes):
     username = str(user)
     username = username.split(":")[-1].rstrip(">")
-    print("Fetching ", username, " onDeck media...")
-    print("______________________________________")
+    print("Fetching", username, "onDeck media...")
     user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
     user_files = []
     for video in user_plex.library.onDeck():
@@ -131,7 +129,6 @@ def otherusers(user, number_episodes):
 # Function to fetch onDeck media files for the main user
 def mainuser(number_episodes):
     print("Fetching main user's onDeck media...")
-    print("______________________________________")
     user_files = []
     for video in plex.library.onDeck():
         # Apply section filter
@@ -201,25 +198,22 @@ if sessions:
         # Get the title of the media item
         media_title = media_item.title
         print("Noticed an active session, skipping: ", media_title)
-        print("______________________________________")
         # Get the full path of the media item
         media_path = media_item.media[0].parts[0].file
         files_to_skip.append(media_path)
 
-print("Modifying the paths for each media...")
+print("Adjusting the paths of the onDeck media...")
 # For the media to be moved
 modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders)
 # For the watched media
 modify_file_paths(watched_files, plex_source, real_source, plex_library_folders, nas_library_folders)
-print("______________________________________")
 
 if watched_move == 'yes':
     #Fetches watched media
     for user in plex.myPlexAccount().users():  # All the other users
         username = str(user)
         username = username.split(":")[-1].rstrip(">")
-        print("Fetching ", username, " watched media...")
-        print("______________________________________")
+        print("Fetching", username, "watched media...")
         user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
         for section_id in valid_sections:
             section = plex.library.sectionByID(section_id)
@@ -233,8 +227,14 @@ if watched_move == 'yes':
                 else:
                     watched_files.append(video.media[0].parts[0].file)
     # Moves watched media from the cache drive to the slow drives
-    print("Moving watched media file:")
-    for file in watched_files:
+    if debug == "yes":
+        print("***Debug mode is on***")
+    print("Moving watched media file...")
+    processed_files = set()
+    for count, file in enumerate(watched_files):
+        if file in processed_files:
+            continue
+        processed_files.add(file)
         media_file_path = os.path.dirname(file)
         user_path = media_file_path.replace(plex_source, real_source)
         cache_path = user_path.replace(real_source, cache_dir)
@@ -244,20 +244,14 @@ if watched_move == 'yes':
             os.makedirs(user_path)
         if os.path.isfile(cache_file_name):
             if unraid == 'yes':
-                disk_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
-            else:
-                disk_file_name = user_file_name
+                user_path = user_path.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
+            move = f"mv -v \"{cache_file_name}\" \"{user_path}\""
             if debug == "yes":
-                print("Debug mode is ON:")
-                print("Moving", cache_file_name, "--> TO -->", disk_file_name)
-                print("______________________________________")
+                print(move)
             else:
-                
-                move = f"mv -v \"{cache_file_name}\" \"{disk_file_name}\""
                 os.system(move)
-            watched_to_remove.append(file)
-    print("______________________________________")
 
+# Helps calculating the total size of the files that needs to be moved to the cache
 for file in files:
     media_file_path = os.path.dirname(file)
     user_path = media_file_path.replace(plex_source, real_source)
@@ -277,7 +271,6 @@ if watched_move == 'yes':
     print(f"Total size of media files minus the watched media: {total_size / (1024**3):.2f} GB")
 if total_size > free_space:
     exit("Error: Not enough space on destination drive.")
-print("______________________________________")
 
 # Search for subtitle files (any file with similar file name but different extension)
 processed_files = set()
@@ -288,7 +281,7 @@ for count, fileToCache in enumerate(files):
     processed_files.add(fileToCache)
     directory_path = os.path.dirname(fileToCache)
     if fileToCache in files_to_skip:
-        print("Those files are currently used, skipping...")
+        print("This files are currently used, skipping...")
         print(fileToCache)
         continue
     directory_path = directory_path.replace(plex_source, real_source)
@@ -299,12 +292,12 @@ for count, fileToCache in enumerate(files):
         for subtitle in subtitle_files:
             if subtitle not in files:
                 files.append(subtitle)
-print("______________________________________")
 
 # Correct all paths locating the file in the unraid array and move the files to the cache drive
 processed_files = set()
-print("Moving process:")
-print("______________________________________")
+print("Moving to media files to cache drive...")
+if debug == "yes":
+    print("***Debug mode is on***")
 for count, fileToCache in enumerate(files):
     if fileToCache in processed_files:
         continue
@@ -322,25 +315,11 @@ for count, fileToCache in enumerate(files):
             disk_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
         else:
             disk_file_name = user_file_name
+        move = f"mv -v \"{disk_file_name}\" \"{cache_path}\""
         if debug == "yes":
-            print("Debug is ON, File does not exists on the cache")
-            print("Moving", disk_file_name, "--> TO -->", cache_path)
-            print("Cache file path:", cache_path)
-            print("User file name:", user_file_name)
-            print("Disk file name:", disk_file_name)
-            print("Cache file name:", cache_file_name)
-            print("********************************")
+            print(move)
         else:
-            print("Moving media file on cache drive:")
-            move = f"mv -v \"{disk_file_name}\" \"{cache_path}\""
             os.system(move)
-            print("______________________________________")
-    else:
-        if debug == "yes":
-            print("Debug is ON, File already exists on the cache")
-            print("Cache file path:", cache_path)
-            print("Cache file name:", cache_file_name)
-            print("********************************")
 
 print("Script executed.")
 # Thank you for using my script github.com/bexem/PlexOnDeckCache
