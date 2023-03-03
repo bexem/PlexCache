@@ -202,11 +202,6 @@ if sessions:
         media_path = media_item.media[0].parts[0].file
         files_to_skip.append(media_path)
 
-print("Adjusting the paths of the onDeck media...")
-# For the media to be moved
-modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders)
-# For the watched media
-modify_file_paths(watched_files, plex_source, real_source, plex_library_folders, nas_library_folders)
 
 if watched_move == 'yes':
     #Fetches watched media
@@ -226,7 +221,7 @@ if watched_move == 'yes':
                                     watched_files.append(part.file)  
                 else:
                     watched_files.append(video.media[0].parts[0].file)
-    # Moves watched media from the cache drive to the slow drives
+    # Moves watched media from the cache drive to the array
     if debug == "yes":
         print("***Debug mode is on***")
     print("Moving watched media file...")
@@ -234,13 +229,16 @@ if watched_move == 'yes':
     for count, file in enumerate(watched_files):
         if file in processed_files:
             continue
+        # Check and removes for duplicates between watched and ondeck/watchlist media
+        temp_array = {os.path.basename(file_path) for file_path in watched_files}
+        files = [file_path for file_path in files if os.path.basename(file_path) not in temp_array]
         processed_files.add(file)
         media_file_path = os.path.dirname(file)
         user_path = media_file_path.replace(plex_source, real_source)
         cache_path = user_path.replace(real_source, cache_dir)
         user_file_name = user_path + "/" + os.path.basename(file)
         cache_file_name = cache_path + "/" + os.path.basename(file)
-        if not os.path.exists(user_path):  # If the path that will end up containing the media file does not exist, this lines will create it
+        if not os.path.exists(user_path):  # Create destination folder if doesn't exists
             os.makedirs(user_path)
         if os.path.isfile(cache_file_name):
             if unraid == 'yes':
@@ -250,6 +248,13 @@ if watched_move == 'yes':
                 print(move)
             else:
                 os.system(move)
+
+print("Adjusting the paths of the onDeck media...")
+# For the media to be moved
+modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders)
+# For the watched media
+modify_file_paths(watched_files, plex_source, real_source, plex_library_folders, nas_library_folders)
+
 
 # Helps calculating the total size of the files that needs to be moved to the cache
 for file in files:
