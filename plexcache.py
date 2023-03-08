@@ -238,11 +238,11 @@ if watched_move == 'yes':
         cache_path = user_path.replace(real_source, cache_dir)
         user_file_name = user_path + "/" + os.path.basename(file)
         cache_file_name = cache_path + "/" + os.path.basename(file)
+        if unraid == 'yes':
+            user_path = user_path.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
         if not os.path.exists(user_path):  # Create destination folder if doesn't exists
             os.makedirs(user_path)
         if os.path.isfile(cache_file_name):
-            if unraid == 'yes':
-                user_path = user_path.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
             move = f"mv -v \"{cache_file_name}\" \"{user_path}\""
             if debug == "yes":
                 print(move)
