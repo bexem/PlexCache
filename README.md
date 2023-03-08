@@ -1,4 +1,4 @@
-**TLDR:** Move the media currently On Deck on Plex from the array to the cache. 
+**TLDR:** Move the media currently On Deck/Watchlist on Plex from the array to the cache. 
 
 This Python script reduces energy consumption by minimizing the need to spin up the array/disk(s) when watching recurrent media like TV series. It achieves this by moving the media from the OnDeck library of the main user, all other users, and the main user's watchlist. For TV shows/anime, it also fetches the next specified number of episodes.
 
@@ -6,14 +6,15 @@ The project contains two scripts: a setup script and a main script. The setup sc
 The script was initially developed for Unraid but is compatible with other systems.
 
 # The script can:
-- Fetch a specified number of episodes of the Shows on "onDeck" and the main user's watchlist.
-- Search only the specified libraries.
-- Check for free space before moving any file.
-- Move watched media present on the cache drive back to the array.
-- Filter media older than a specified number of days.
-- Run in debug mode for testing.
-- Exit the script if any active session or skip the currently playing media.
-- Find your missing unicorn.
+- t can fetch a specified number of episodes from the "onDeck" and the main user's watchlist.
+- It can search only the specified libraries.
+- It checks for free space before moving any file.
+- It moves watched media present on the cache drive back to the array.
+- For all the media moved to or from the cache, the relative subtitles will follow.
+- It can filter media older than a specified number of days.
+- It can run in debug mode for testing.
+- It can exit the script if any active session or skip the currently playing media.
+- It can find your missing unicorn.
 
 Note that the **"settings.json"** file is assumed to be located in the same directory, but this can be changed by editing the "settings_filename" variable in the script. 
 
