@@ -224,13 +224,13 @@ if watched_move == 'yes':
     # Search for subtitle files (any file with similar file name but different extension)
     processed_files = set()
     print("Fetching watched media subtitles...")
-    for count, fileToCache in enumerate(watched_files):
-        if fileToCache in processed_files:
+    for count, file in enumerate(watched_files):
+        if file in processed_files:
             continue
-        processed_files.add(fileToCache)
-        directory_path = os.path.dirname(fileToCache)
+        processed_files.add(file)
+        directory_path = os.path.dirname(file)
         directory_path = directory_path.replace(plex_source, real_source)
-        file_name, file_ext = os.path.splitext(os.path.basename(fileToCache))
+        file_name, file_ext = os.path.splitext(os.path.basename(file))
         files_in_dir = os.listdir(directory_path)
         subtitle_files = [os.path.join(directory_path, file) for file in files_in_dir if file.startswith(file_name) and file != file_name+file_ext]
         if subtitle_files:
