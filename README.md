@@ -16,8 +16,6 @@ The script was initially developed for Unraid but is compatible with other syste
 - It can exit the script if any active session or skip the currently playing media.
 - It can find your missing unicorn.
 
-Note that the **"settings.json"** file is assumed to be located in the same directory, but this can be changed by editing the "settings_filename" variable in the script. 
-
 # Disclaimer:
 
 Before you dive in, here's a reality check: this script comes without any warranties, guarantees, or magic powers.
@@ -43,6 +41,8 @@ The instructions below are applicable to the main operating systems:
 # How to run the main script:
 
 **Be sure you have the settings file configured accordingly before running the script.**
+
+Note that the **"settings.json"** file is assumed to be located in the same directory, but this can be changed by editing the "settings_filename" variable in the script. 
 
 1) For users of Unraid, the following instructions can be followed to execute the script:
 
