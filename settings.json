@@ -25,6 +25,7 @@
         "tvseries"
     ],
     "unraid": "yes",
+    "watched_move": "no",
     "skip": "skip",
     "debug": "yes",
     "firststart": "yes"
