@@ -6,7 +6,7 @@ The project contains two scripts: a setup script and a main script. The setup sc
 The script was initially developed for Unraid but is compatible with other systems.
 
 # The script can:
-- t can fetch a specified number of episodes from the "onDeck" and the main user's watchlist.
+- It can fetch a specified number of episodes from the "onDeck" and the main user's watchlist.
 - It can search only the specified libraries.
 - It checks for free space before moving any file.
 - It moves watched media present on the cache drive back to the array.
