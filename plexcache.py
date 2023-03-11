@@ -213,7 +213,11 @@ if watched_move == 'yes':
         username = str(user)
         username = username.split(":")[-1].rstrip(">")
         print("Fetching", username, "watched media...")
-        user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
+        try:
+            user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
+        except:
+            print("Error: Failed to Fetch", username, "watched media")
+            continue
         for section_id in valid_sections:
             section = plex.library.sectionByID(section_id)
             for video in section.search(unwatched=False):
