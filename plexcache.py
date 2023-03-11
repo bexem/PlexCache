@@ -215,20 +215,19 @@ if watched_move == 'yes':
         print("Fetching", username, "watched media...")
         try:
             user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
+            for section_id in valid_sections:
+                section = plex.library.sectionByID(section_id)
+                for video in section.search(unwatched=False):
+                    if video.TYPE == 'show':
+                        for episode in video.episodes():
+                            for media in episode.media:
+                                for part in media.parts:
+                                    if episode.isPlayed:
+                                        watched_files.append(part.file)  
+                    else:
+                        watched_files.append(video.media[0].parts[0].file)
         except:
             print("Error: Failed to Fetch", username, "watched media")
-            continue
-        for section_id in valid_sections:
-            section = plex.library.sectionByID(section_id)
-            for video in section.search(unwatched=False):
-                if video.TYPE == 'show':
-                    for episode in video.episodes():
-                        for media in episode.media:
-                            for part in media.parts:
-                                if episode.isPlayed:
-                                    watched_files.append(part.file)  
-                else:
-                    watched_files.append(video.media[0].parts[0].file)
     # Search for subtitle files (any file with similar file name but different extension)
     processed_files = set()
     print("Fetching watched media subtitles...")
