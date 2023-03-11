@@ -94,7 +94,11 @@ def otherusers(user, number_episodes):
     username = str(user)
     username = username.split(":")[-1].rstrip(">")
     print("Fetching", username, "onDeck media...")
-    user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
+    try:
+        user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
+    except:
+        print("Error: Failed to Fetch", username, "onDeck media")
+        return []
     user_files = []
     for video in user_plex.library.onDeck():
         if video.section().key in valid_sections:
