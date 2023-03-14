@@ -28,6 +28,7 @@ try:
     number_episodes = int(settings_data['number_episodes'])
     valid_sections = settings_data['valid_sections']
     users_toggle = settings_data['users_toggle']
+    skip_users = settings_data['skip_users']
     watchlist_toggle = settings_data['watchlist_toggle']
     watchlist_episodes = int(settings_data['watchlist_episodes'])
     DAYS_TO_MONITOR = int(settings_data['DAYS_TO_MONITOR'])
@@ -93,7 +94,9 @@ def watchlist(watchlist_episodes):
 def otherusers(user, number_episodes):
     username = str(user)
     username = username.split(":")[-1].rstrip(">")
-    print("Fetching", username, "onDeck media...")
+    if user.get_token(plex.machineIdentifier) in skip_users:
+        print("Skipping", username, "onDeck media...")
+        return []
     try:
         user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
     except:
@@ -182,11 +185,11 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
 
 # Fetches onDeck media for the main user
 files.extend(mainuser(number_episodes))  
-if watchlist_toggle == 'yes':
+if watchlist_toggle in ['y', 'yes']:
     # Fetches watchlist media for the main user
     files.extend(watchlist(watchlist_episodes))
 
-if users_toggle == 'yes':
+if users_toggle in ['y', 'yes']:
     # Fetches onDeck media for the other users
     for user in plex.myPlexAccount().users():  
         files.extend(otherusers(user, number_episodes))
@@ -207,7 +210,7 @@ if sessions:
         files_to_skip.append(media_path)
 
 
-if watched_move == 'yes':
+if watched_move in ['y', 'yes']:
     #Fetches watched media
     for user in plex.myPlexAccount().users():  # All the other users
         username = str(user)
@@ -245,7 +248,7 @@ if watched_move == 'yes':
                 if subtitle not in files:
                     watched_files.append(subtitle)
     # Moves watched media from the cache drive to the array
-    if debug == "yes":
+    if debug in ['y', 'yes']:
         print("***Debug mode is on***")
     print("Moving watched media files...")
     processed_files = set()
@@ -261,13 +264,13 @@ if watched_move == 'yes':
         cache_path = user_path.replace(real_source, cache_dir)
         user_file_name = user_path + "/" + os.path.basename(file)
         cache_file_name = cache_path + "/" + os.path.basename(file)
-        if unraid == 'yes':
+        if unraid in ['y', 'yes']:
             user_path = user_path.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
         if not os.path.exists(user_path):  # Create destination folder if doesn't exists
             os.makedirs(user_path)
         if os.path.isfile(cache_file_name):
             move = f"mv -v \"{cache_file_name}\" \"{user_path}\""
-            if debug == "yes":
+            if debug in ['y', 'yes']:
                 print(move)
             else:
                 os.system(move)
@@ -322,7 +325,7 @@ for count, fileToCache in enumerate(files):
 # Correct all paths locating the file in the unraid array and move the files to the cache drive
 processed_files = set()
 print("Moving to media files to cache drive...")
-if debug == "yes":
+if debug in ['y', 'yes']:
     print("***Debug mode is on***")
 for count, fileToCache in enumerate(files):
     if fileToCache in processed_files:
@@ -337,7 +340,7 @@ for count, fileToCache in enumerate(files):
     if not os.path.exists(cache_path):  # If the path that will end up containing the media file does not exist, this lines will create it
         os.makedirs(cache_path)
     if not os.path.isfile(cache_file_name):
-        if unraid == 'yes':
+        if unraid in ['y', 'yes']:
             disk_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
         else:
             disk_file_name = user_file_name

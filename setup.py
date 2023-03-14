@@ -22,8 +22,8 @@ while True:
     else:
         print("Settings file doesn't exist, please check the path:\n")
         print(settings_filename)
-        creation = input("\nIf it correct, do you want to create the file? {Y/n] (default = no)") or 'no'
-        if creation.lower() == "y" or creation.lower() == "yes":
+        creation = input("\nIf the name is correct, do you want to create the file? {Y/n] (default = no) ") or 'no'
+        if creation.lower() in ['y', 'yes']:
             with open(settings_filename, 'w') as f:
                 json.dump({}, f)
                 settings_data = {}
@@ -48,7 +48,7 @@ def is_valid_plex_url(url):
 # Ask user for input for missing settings
 def setup():
     while 'PLEX_URL' not in settings_data:
-        url = input('\nEnter your plex server address (http://localhost:32400): ')
+        url = input('\nEnter your plex server address (Example: http://localhost:32400): ')
         try:
             if is_valid_plex_url(url):
                 print('Valid Plex URL')
@@ -70,22 +70,24 @@ def setup():
             while not valid_sections:
                 for library in libraries:
                     print(f"Your plex library name: {library.title}")
-                    setting3 = input("Do you want to include this library? [Y/n] (default: yes) ") or 'yes'
-                    if setting3.lower() == "n":
+                    include = input("Do you want to include this library? [Y/n] (default: yes) ") or 'yes'
+                    if include.lower() in ['n', 'no']:
                         continue
-                    valid_sections.append(library.key)
-                    if 'plex_source' not in settings_data:
-                        location_index = 0 
-                        location = library.locations[location_index]
-                        root_folder = (os.path.abspath(os.path.join(location, os.pardir)) + "/")
-                        print(f"\nPlex source path autoselected and set to: {root_folder}")
-                        setting6 = root_folder
-                        settings_data['plex_source'] = setting6
-                    for location in library.locations:
-                        plex_library_folder = ("/" + os.path.basename(location) + "/")
-                        plex_library_folder = plex_library_folder.strip('/')
-                        plex_library_folders.append(plex_library_folder)
-                        settings_data['plex_library_folders'] = plex_library_folders
+                    elif include.lower() in ['y', 'yes']:
+                        valid_sections.append(library.key)
+                        if 'plex_source' not in settings_data:
+                            location_index = 0 
+                            location = library.locations[location_index]
+                            root_folder = (os.path.abspath(os.path.join(location, os.pardir)) + "/")
+                            print(f"\nPlex source path autoselected and set to: {root_folder}")
+                            settings_data['plex_source'] = root_folder
+                        for location in library.locations:
+                            plex_library_folder = ("/" + os.path.basename(location) + "/")
+                            plex_library_folder = plex_library_folder.strip('/')
+                            plex_library_folders.append(plex_library_folder)
+                            settings_data['plex_library_folders'] = plex_library_folders
+                    else:
+                        print("Invalid choice. Please enter either yes or no")
                 if not valid_sections:
                     print("You must select at least one library to include. Please try again.")
             settings_data['valid_sections'] = valid_sections
@@ -96,31 +98,54 @@ def setup():
         if 'number_episodes' not in settings_data:
             number_episodes = input('\nHow many episodes (digit) do you want fetch (onDeck)? (default: 5) ') or '5'
             if number_episodes.isdigit():
-                settings_data['DAYS_TO_MONITOR'] = number_episodes
+                settings_data['number_episodes'] = number_episodes
                 break
             else:
                 print("User input is not a number")
 
     while True:
         if 'users_toggle' not in settings_data:
-            user_toggle = input('\nDo you want to fetch onDeck media from all other users? (default: yes) ') or 'yes'
-            if user_toggle.lower() == 'y' or user_toggle.lower() == 'yes':
-                settings_data['users_toggle'] = user_toggle
-                break
-            elif user_toggle.lower() == 'n' or user_toggle.lower() == 'no':
-                settings_data['users_toggle'] = user_toggle
-                break
+            fetch_all_users = input('\nDo you want to fetch onDeck media from all other users? (default: yes) ') or 'yes'
+            skip_users = []
+            if fetch_all_users.lower() in ['y', 'yes']:
+                settings_data['users_toggle'] = 'yes'
+                skip_users_choice = input('\nWould you like to skip some of the users? [Y/n] (default: no) ') or 'no'
+                if skip_users_choice.lower() in ['y', 'yes']:
+                    for user in plex.myPlexAccount().users():
+                        username = str(user).split(":")[-1].rstrip(">")
+                        while True:
+                            answer = input(f'\nDo you want to skip this user? {username} [Y/n] (default: no) ') or 'no'
+                            if answer.lower() in ['y', 'yes']:
+                                token = user.get_token(plex.machineIdentifier)
+                                skip_users.append(token)
+                                print("\n", username, " will be skipped.")
+                                break
+                            elif answer.lower() in ['n', 'no']:
+                                break
+                            else:
+                                print("Invalid choice. Please enter either yes or no")
+                                continue
+                    settings_data['skip_users'] = skip_users
+                elif skip_users_choice.lower() in ['n', 'no']:
+                    settings_data['skip_users'] = []
+                else:
+                    print("Invalid choice. Please enter either yes or no")
+                    continue
+            elif fetch_all_users.lower() in ['n', 'no']:
+                settings_data['users_toggle'] = 'no'
             else:
                 print("Invalid choice. Please enter either yes or no")
+                continue
+            break
 
     while True:
         if 'watchlist_toggle' not in settings_data:
-            watchlist = input('\nDo you want to fetch your watchlist media? [Y/n] (default: no)') or 'no'
-            if watchlist.lower() == "n" or watchlist.lower() == "no":
+            watchlist = input('\nDo you want to fetch your watchlist media? [Y/n] (default: no) ') or 'no'
+            if watchlist.lower() in ['n', 'no']:
                 settings_data['watchlist_toggle'] = watchlist
                 settings_data['watchlist_episodes'] = '0'
                 break
-            elif watchlist.lower() == "y" or watchlist.lower() == "yes":
+            elif watchlist.lower() in ['y', 'yes']:
                 settings_data['watchlist_toggle'] = watchlist
                 while True:
                     watchlist_episodes = input('How many episodes do you want fetch (watchlist) (default: 1)? ') or '1'
@@ -132,16 +157,17 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
-        
 
     while True:
         if 'DAYS_TO_MONITOR' not in settings_data:
-            days = input('\nMaximum age of the media onDeck to be fetched? (default: 99)') or '99'
-        if days.isdigit():
-            settings_data['DAYS_TO_MONITOR'] = days
-            break
+            days = input('\nMaximum age of the media onDeck to be fetched? (default: 99) ') or '99'
+            if days.isdigit():
+                settings_data['DAYS_TO_MONITOR'] = days
+                break
+            else:
+                print("User input is not a number")
         else:
-            print("User input is not a number")
+            break
 
     if 'cache_dir' not in settings_data:
         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '')  or '/mnt/cache/'
@@ -165,11 +191,11 @@ def setup():
     while True:
         if 'unraid' not in settings_data:
             unraid = input('\nAre you planning to run plexache.py on unraid? (default: yes) [Y/n] ')  or 'yes'
-            if unraid.lower() == 'skip':
-                settings_data['unraid'] = unraid
+            if unraid.lower() in ['y', 'yes']:
+                settings_data['unraid'] = 'yes'
                 break
-            elif unraid.lower() == 'exit':
-                settings_data['unraid'] = unraid
+            elif unraid.lower() in ['n', 'no']:
+                settings_data['unraid'] = 'no'
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
@@ -177,10 +203,10 @@ def setup():
     while True:
         if 'watched_move' not in settings_data:
             watched_move = input('\nDo you want to move watched media from the cache back to the cache? (default: no) [Y/n] ')  or 'no'
-            if watched_move.lower() == "y" or watched_move.lower() == "yes":
+            if watched_move.lower() in ['y', 'yes']:
                 settings_data['watched_move'] = watched_move
                 break
-            elif watched_move.lower() == "n" or watched_move.lower() == "no":
+            elif watched_move.lower() in ['n', 'no']:
                 settings_data['watched_move'] = watched_move
                 break
             else:
@@ -200,12 +226,12 @@ def setup():
 
     while True:
         if 'debug' not in settings_data:
-            debug = input('\nDo you want to debug the script? No data will actually be moved. (default: no) [Y/n]') or 'no'
-            if debug.lower() == "y" or debug.lower() == "yes":
-                settings_data['debug'] = 'yes'
+            debug = input('\nDo you want to debug the script? No data will actually be moved. (default: no) [Y/n] ') or 'no'
+            if debug.lower() in ['y', 'yes']:
+                settings_data['debug'] = debug
                 break
-            elif debug.lower() == "n" or debug.lower() == "no":
-                settings_data['debug'] = 'no'
+            elif debug.lower() in ['n', 'no']:
+                settings_data['debug'] = debug
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
