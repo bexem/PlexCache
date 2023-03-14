@@ -6,15 +6,16 @@ The project contains two scripts: a setup script and a main script. The setup sc
 The script was initially developed for Unraid but is compatible with other systems.
 
 # The script can:
-- It can fetch a specified number of episodes from the "onDeck" and the main user's watchlist.
-- It can search only the specified libraries.
-- It checks for free space before moving any file.
-- It moves watched media present on the cache drive back to the array.
-- For all the media moved to or from the cache, the relative subtitles will follow.
-- It can filter media older than a specified number of days.
-- It can run in debug mode for testing.
-- It can exit the script if any active session or skip the currently playing media.
-- It can find your missing unicorn.
+- Fetch a specified number of episodes from the "onDeck" for the main user and other specified users, as well as the main user's watchlist.
+- Skip fetching onDeck media for specified users.
+- Search only the specified libraries.
+- Check for free space before moving any file.
+- Move watched media present on the cache drive back to the array.
+- Move relative subtitles along with the media moved to or from the cache.
+- Filter media older than a specified number of days.
+- Run in debug mode for testing.
+- Exit the script if any active session or skip the currently playing media.
+- Find your missing unicorn.
 
 # Disclaimer:
 
