@@ -14,16 +14,13 @@
     ],
     "number_episodes": "5",
     "users_toggle": "yes",
+    "skip_users": [],
     "watchlist_toggle": "no",
     "watchlist_episodes": "0",
     "DAYS_TO_MONITOR": "99",
     "cache_dir": "/mnt/cache/",
     "real_source": "/mnt/user/",
-    "nas_library_folders": [
-        "movies",
-        "anime",
-        "tvseries"
-    ],
+    "nas_library_folders": [],
     "unraid": "yes",
     "watched_move": "no",
     "skip": "skip",

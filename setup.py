@@ -5,7 +5,7 @@ from plexapi.server import PlexServer
 from plexapi.exceptions import BadRequest
 
 # The script will create/edit the file in the same folder the script is located, but you can change that
-settings_filename = 'settings_new.json'
+settings_filename = 'settings.json'
 
 while True:
     if os.path.exists(settings_filename):
