@@ -232,6 +232,7 @@ if watched_move in ['y', 'yes']:
             print("Error: Failed to Fetch", username, "watched media")
     # Search for subtitle files (any file with similar file name but different extension)
     processed_files = set()
+    print("Adjusting paths for watched media...")
     modify_file_paths(watched_files, plex_source, real_source, plex_library_folders, nas_library_folders)
     print("Fetching watched media subtitles...")
     for count, file in enumerate(watched_files):
@@ -259,8 +260,7 @@ if watched_move in ['y', 'yes']:
         temp_array = {os.path.basename(file_path) for file_path in watched_files}
         files = [file_path for file_path in files if os.path.basename(file_path) not in temp_array]
         processed_files.add(file)
-        media_file_path = os.path.dirname(file)
-        user_path = media_file_path.replace(plex_source, real_source)
+        user_path = os.path.dirname(file)
         cache_path = user_path.replace(real_source, cache_dir)
         user_file_name = user_path + "/" + os.path.basename(file)
         cache_file_name = cache_path + "/" + os.path.basename(file)
@@ -277,7 +277,7 @@ if watched_move in ['y', 'yes']:
 
 
 
-print("Adjusting the paths of the onDeck media...")
+print("Adjusting paths...")
 # For the media to be moved
 modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders)
 
@@ -329,8 +329,8 @@ for count, fileToCache in enumerate(files):
         continue
     if fileToCache in files_to_skip:
         continue
-    media_file_path = os.path.dirname(fileToCache)
-    user_path = media_file_path.replace(plex_source, real_source)
+    processed_files.add(file)
+    user_path = os.path.dirname(fileToCache)
     cache_path = user_path.replace(real_source, cache_dir)
     user_file_name = user_path + "/" + os.path.basename(fileToCache)
     cache_file_name = cache_path + "/" + os.path.basename(fileToCache)
