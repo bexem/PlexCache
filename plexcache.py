@@ -175,8 +175,7 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
         file_path = file_path.replace(plex_source, real_source)
         # Determine which library folder is in the file path
         for j, folder in enumerate(plex_library_folders):
-            path_component = os.path.basename(file_path)
-            if path_component == folder:
+            if folder in file_path:
                 # Replace the plex library folder with the corresponding NAS library folder
                 file_path = file_path.replace(folder, nas_library_folders[j])
                 break
@@ -233,13 +232,16 @@ if watched_move in ['y', 'yes']:
             print("Error: Failed to Fetch", username, "watched media")
     # Search for subtitle files (any file with similar file name but different extension)
     processed_files = set()
+    modify_file_paths(watched_files, plex_source, real_source, plex_library_folders, nas_library_folders)
     print("Fetching watched media subtitles...")
     for count, file in enumerate(watched_files):
         if file in processed_files:
             continue
         processed_files.add(file)
         directory_path = os.path.dirname(file)
+        print(directory_path)
         directory_path = directory_path.replace(plex_source, real_source)
+        print(directory_path)
         file_name, file_ext = os.path.splitext(os.path.basename(file))
         files_in_dir = os.listdir(directory_path)
         subtitle_files = [os.path.join(directory_path, file) for file in files_in_dir if file.startswith(file_name) and file != file_name+file_ext]
@@ -280,9 +282,6 @@ if watched_move in ['y', 'yes']:
 print("Adjusting the paths of the onDeck media...")
 # For the media to be moved
 modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders)
-# For the watched media
-modify_file_paths(watched_files, plex_source, real_source, plex_library_folders, nas_library_folders)
-
 
 # Helps calculating the total size of the files that needs to be moved to the cache
 for file in files:
