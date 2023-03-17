@@ -6,14 +6,14 @@ from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
 from datetime import datetime, timedelta
 
-settings_filename = "/mnt/user/system/PlexCache/settings.json"
-log_file_folder = "/mnt/user/system/PlexCache/"
+script_folder="/mnt/user/system/PlexCache/"
+settings_filename = os.path.join(script_folder, "settings.json")
 log_file_pattern = "plex_cache_script_*.log"
 max_log_files = 5
 log_file_prefix = log_file_pattern[:-5]
-if not os.path.exists(log_file_folder):
-    os.makedirs(log_file_folder)
-existing_log_files = glob.glob(os.path.join(log_file_folder, log_file_pattern))
+if not os.path.exists(script_folder):
+    os.makedirs(script_folder)
+existing_log_files = glob.glob(os.path.join(script_folder, log_file_pattern))
 # Check if the number of log files exceeds the limit
 if len(existing_log_files) >= max_log_files:
     # Sort the log files by creation time
@@ -23,7 +23,7 @@ if len(existing_log_files) >= max_log_files:
         os.remove(existing_log_files[i])
 # Create a new log file for the current session
 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-log_file = os.path.join(log_file_folder, f"{log_file_prefix}{current_time}.log")
+log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}{current_time}.log")
 # Set up logging
 logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
