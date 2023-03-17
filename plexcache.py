@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 script_folder="/mnt/user/system/PlexCache/"
 settings_filename = os.path.join(script_folder, "settings.json")
-log_file_pattern = "plex_cache_script_*.log"
+log_file_pattern = "plexcache_script_*.log"
 max_log_files = 5
 log_file_prefix = log_file_pattern[:-5]
 if not os.path.exists(script_folder):
@@ -22,7 +22,7 @@ if len(existing_log_files) >= max_log_files:
     for i in range(len(existing_log_files) - max_log_files + 1):
         os.remove(existing_log_files[i])
 # Create a new log file for the current session
-current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+current_time = datetime.now().strftime("%Y%m%d_%H%M")
 log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}{current_time}.log")
 # Set up logging
 logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -53,13 +53,15 @@ try:
     plex_library_folders = settings_data['plex_library_folders']
     unraid = settings_data['unraid']
     watched_move = settings_data['watched_move']
+    watchlist_cache_expiry = int(settings_data['watchlist_cache_expiry'])
     skip = settings_data['skip']
     debug = settings_data['debug']
 except KeyError as e:
     logging.error(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
     exit(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
 
-cache_file = Path("/mnt/user/system/PlexCache/watchlist_cache.json")
+
+watchlist_cache_file = Path(os.path.join(script_folder, "watchlist_cache.json"))
 processed_files = []
 fileToCache = []
 files_to_skip = []
@@ -218,6 +220,30 @@ def get_media_subtitles(media_files, files_to_skip=None):
                     media_files.append(subtitle)
     return media_files or []
 
+def convert_bytes_to_readable_size(size_bytes):
+    if size_bytes >= (1024 ** 4):
+        size = size_bytes / (1024 ** 4)
+        unit = 'TB'
+    elif size_bytes >= (1024 ** 3):
+        size = size_bytes / (1024 ** 3)
+        unit = 'GB'
+    elif size_bytes >= (1024 ** 2):
+        size = size_bytes / (1024 ** 2)
+        unit = 'MB'
+    else:
+        size = size_bytes / 1024
+        unit = 'KB'
+    return size, unit
+
+def get_free_space(dir):
+    stat = os.statvfs(dir)
+    free_space_bytes = stat.f_bfree * stat.f_frsize
+    return convert_bytes_to_readable_size(free_space_bytes)
+
+def get_total_size_of_files(files):
+    total_size_bytes = sum(os.path.getsize(file) for file in files)
+    return convert_bytes_to_readable_size(total_size_bytes)
+
 def move_media_files(files, real_source, cache_dir, unraid, debug, destination, files_to_skip=None):
     if files_to_skip is None:
         files_to_skip = set()
@@ -293,15 +319,15 @@ if users_toggle in ['y', 'yes']:
 
 # Fetch watchlist media
 if watchlist_toggle in ['y', 'yes']:
-    if cache_file.exists() and (datetime.now() - datetime.fromtimestamp(cache_file.stat().st_mtime) <= timedelta(hours=1)):
+    if watchlist_cache_file.exists() and (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) <= timedelta(hours=watchlist_cache_expiry)):
         logging.info("Loading watchlist media from cache...")
-        with cache_file.open('r') as f:
+        with watchlist_cache_file.open('r') as f:
             fileToCache.extend(json.load(f))
     else:
         logging.info("Fetching watchlist media...")
         watchlist_media = fetch_watchlist_media(plex, valid_sections, watchlist_episodes)
         fileToCache.extend(watchlist_media)
-        with cache_file.open('w') as f:
+        with watchlist_cache_file.open('w') as f:
             json.dump(watchlist_media, f)
 
 modify_file_paths(fileToCache, plex_source, real_source, plex_library_folders, nas_library_folders)
@@ -315,12 +341,12 @@ if watched_move in ['y', 'yes']:
     watched_files = [file for file in watched_files if os.path.isfile(os.path.join(cache_dir, os.path.basename(file))) and os.path.basename(file) not in processed_files]
     processed_files.update(os.path.basename(file) for file in watched_files)
     try:
-        total_size = sum(os.path.getsize(file) for file in watched_files)
-        free_space = os.statvfs(real_source).f_bfree * os.statvfs(cache_dir).f_frsize
-        print(f"Free space on the array: {free_space / (1024**3):.2f} GB")
-        logging.info(f"Free space on the array: {free_space / (1024**3):.2f} GB")
-        print(f"Total size of watched media files to be moved to the array: {total_size / (1024**3):.2f} GB")
-        logging.info(f"Total size of watched media files to be moved to the array: {total_size / (1024**3):.2f} GB")
+        free_space, unit = get_free_space(real_source)
+        print(f"Free space on the array: {free_space:.2f} {unit}")
+        logging.info(f"Free space on the array: {free_space:.2f} {unit}")
+        total_size, unit = get_total_size_of_files(watched_files)
+        print(f"Total size of watched media files to be moved to the array: {total_size:.2f} {unit}")
+        logging.info(f"Total size of watched media files to be moved to the array: {total_size:.2f} {unit}")
         if total_size > free_space:
             raise ValueError("Not enough space on destination drive.")
     except Exception as e:
@@ -342,12 +368,12 @@ try:
         cache_file_name = cache_path + "/" + os.path.basename(file)
         if not os.path.isfile(cache_file_name):
             media_to_move.append(file)
-    total_size = sum(os.path.getsize(file) for file in media_to_move)
-    free_space = os.statvfs(cache_dir).f_bfree * os.statvfs(cache_dir).f_frsize
-    print(f"Free space on cache drive: {free_space / (1024**3):.2f} GB")
-    logging.info(f"Free space on cache drive: {free_space / (1024**3):.2f} GB")
-    print(f"Total size of media files to be moved to the cache: {total_size / (1024**3):.2f} GB")
-    logging.info(f"Total size of media files to be moved to the cache: {total_size / (1024**3):.2f} GB")
+    free_space, unit = get_free_space(cache_dir)
+    print(f"Free space on the cache drive: {free_space:.2f} {unit}")
+    logging.info(f"Free space on the cache drive: {free_space:.2f} {unit}")
+    total_size, unit = get_total_size_of_files(media_to_move)
+    print(f"Total size of media files to be moved to the cache: {total_size:.2f} {unit}")
+    logging.info(f"Total size of media files to be moved to the cache: {total_size:.2f} {unit}")
     if total_size > free_space:
         raise ValueError("Not enough space on destination drive.")
 except Exception as e:

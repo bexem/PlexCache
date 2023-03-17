@@ -144,6 +144,7 @@ def setup():
             if watchlist.lower() in ['n', 'no']:
                 settings_data['watchlist_toggle'] = watchlist
                 settings_data['watchlist_episodes'] = '0'
+                settings_data['watchlist_cache_expiry'] = '1'
                 break
             elif watchlist.lower() in ['y', 'yes']:
                 settings_data['watchlist_toggle'] = watchlist
@@ -154,15 +155,23 @@ def setup():
                         break
                     else:
                         print("User input is not a number")
+                while True:
+                    if 'watchlist_cache_expiry' not in settings_data:
+                        hours = input('\nDefine the watchlist cache expiry duration in hours (default: 1) ') or '1'
+                        if days.isdigit():
+                            settings_data['watchlist_cache_expiry'] = hours
+                            break
+                        else:
+                            print("User input is not a number")
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
 
     while True:
-        if 'DAYS_TO_MONITOR' not in settings_data:
+        if 'days_to_monitor' not in settings_data:
             days = input('\nMaximum age of the media onDeck to be fetched? (default: 99) ') or '99'
             if days.isdigit():
-                settings_data['DAYS_TO_MONITOR'] = days
+                settings_data['days_to_monitor'] = days
                 break
             else:
                 print("User input is not a number")
