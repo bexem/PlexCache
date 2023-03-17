@@ -31,7 +31,7 @@ try:
     skip_users = settings_data['skip_users']
     watchlist_toggle = settings_data['watchlist_toggle']
     watchlist_episodes = int(settings_data['watchlist_episodes'])
-    DAYS_TO_MONITOR = int(settings_data['DAYS_TO_MONITOR'])
+    days_to_monitor = int(settings_data['days_to_monitor'])
     cache_dir = settings_data['cache_dir']
     plex_source = settings_data['plex_source']
     real_source = settings_data['real_source']
