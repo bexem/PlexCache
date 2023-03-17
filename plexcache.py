@@ -321,7 +321,7 @@ for count, fileToCache in enumerate(files):
 
 # Correct all paths locating the file in the unraid array and move the files to the cache drive
 processed_files = set()
-print("Moving to media files to cache drive...")
+print("Moving media files to cache drive...")
 if debug in ['y', 'yes']:
     print("***Debug mode is on***")
 for count, fileToCache in enumerate(files):
