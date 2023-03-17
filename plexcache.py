@@ -1,4 +1,4 @@
-import os, json, logging, glob
+import os, json, logging, glob, subprocess
 from pathlib import Path
 from plexapi.server import PlexServer
 from plexapi.video import Episode
@@ -283,9 +283,10 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
         else:
             if move != None:
                 logging.info(move)
-                result = os.system(move)
-                if result != 0:
-                    logging.error(f"Error executing move command: {move}")
+                result = subprocess.run(move, shell=True, stderr=subprocess.PIPE)
+                if result.returncode != 0:
+                    logging.error(f"Error executing move command: Exit code: {result.returncode}")
+                    logging.error(f"Error message: {result.stderr.decode('utf-8')}")
 
 # Fetches the current playing media
 if sessions:
