@@ -338,17 +338,23 @@ if watched_move in ['y', 'yes']:
     watched_files = get_watched_media(plex, valid_sections)
     modify_file_paths(watched_files, plex_source, real_source, plex_library_folders, nas_library_folders)
     watched_files.extend(get_media_subtitles(watched_files, files_to_skip=files_to_skip))
+    watched_media_to_move = []
     processed_files = set()
-    watched_files = [file for file in watched_files if os.path.isfile(os.path.join(cache_dir, os.path.basename(file))) and os.path.basename(file) not in processed_files]
-    processed_files.update(os.path.basename(file) for file in watched_files)
+    for count, file in enumerate(watched_files):
+        if file in processed_files:
+            continue
+        # Check and removes for duplicates between watched and ondeck/watchlist media
+        temp_array = {os.path.basename(file_path) for file_path in watched_files}
+        watched_media_to_move = [file_path for file_path in fileToCache if os.path.basename(file_path) not in temp_array]
+        processed_files.add(file)
     try:
-        free_space, unit = get_free_space(real_source)
-        print(f"Free space on the array: {free_space:.2f} {unit}")
-        logging.info(f"Free space on the array: {free_space:.2f} {unit}")
-        total_size, unit = get_total_size_of_files(watched_files)
-        print(f"Total size of watched media files to be moved to the array: {total_size:.2f} {unit}")
-        logging.info(f"Total size of watched media files to be moved to the array: {total_size:.2f} {unit}")
-        if total_size > free_space:
+        free_space, free_space_unit = get_free_space(real_source)
+        total_size, total_size_unit = get_total_size_of_files(watched_media_to_move)
+        print(f"Free space on the array: {free_space:.2f} {free_space_unit}")
+        print(f"Total size of watched media files to be moved to the array: {total_size:.2f} {total_size_unit}")
+        logging.info(f"Free space on the array: {free_space:.2f} {free_space_unit}")
+        logging.infoprint(f"Total size of watched media files to be moved to the array: {total_size:.2f} {total_size_unit}")
+        if total_size * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[total_size_unit]) > free_space * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[free_space_unit]):
             raise ValueError("Not enough space on destination drive.")
     except Exception as e:
         logging.error(f"Error checking free space: {str(e)}")
@@ -369,13 +375,13 @@ try:
         cache_file_name = cache_path + "/" + os.path.basename(file)
         if not os.path.isfile(cache_file_name):
             media_to_move.append(file)
-    free_space, unit = get_free_space(cache_dir)
-    print(f"Free space on the cache drive: {free_space:.2f} {unit}")
-    logging.info(f"Free space on the cache drive: {free_space:.2f} {unit}")
-    total_size, unit = get_total_size_of_files(media_to_move)
-    print(f"Total size of media files to be moved to the cache: {total_size:.2f} {unit}")
-    logging.info(f"Total size of media files to be moved to the cache: {total_size:.2f} {unit}")
-    if total_size > free_space:
+    free_space, free_space_unit = get_free_space(cache_dir)
+    total_size, total_size_unit = get_total_size_of_files(media_to_move)
+    print(f"Free space on the array: {free_space:.2f} {free_space_unit}")
+    print(f"Total size of watched media files to be moved to the array: {total_size:.2f} {total_size_unit}")
+    logging.info(f"Free space on the array: {free_space:.2f} {free_space_unit}")
+    logging.infoprint(f"Total size of watched media files to be moved to the array: {total_size:.2f} {total_size_unit}")
+    if total_size * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[total_size_unit]) > free_space * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[free_space_unit]):
         raise ValueError("Not enough space on destination drive.")
 except Exception as e:
     logging.error(f"Error checking free space: {str(e)}")
