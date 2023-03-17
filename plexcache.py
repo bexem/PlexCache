@@ -242,7 +242,10 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
             if not os.path.exists(user_path):  # Create destination folder if doesn't exists
                 os.makedirs(user_path)
             if os.path.isfile(cache_file_name):
-                move = f"mv -v \"{cache_file_name}\" \"{user_path}\""
+                if fileToMove in fileToCache:
+                    continue
+                else:
+                    move = f"mv -v \"{cache_file_name}\" \"{user_path}\""
         if destination == 'cache':
             if not os.path.exists(cache_path):  # Create destination folder if doesn't exists
                 os.makedirs(cache_path)
