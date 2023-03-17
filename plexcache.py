@@ -1,17 +1,14 @@
 import os
 import json
+import logging
+from pathlib import Path
 from plexapi.server import PlexServer
 from plexapi.video import Episode
+from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
-from datetime import datetime
+from datetime import datetime, timedelta
 
-# Please insert the settings filename (and path if not in the same folder)
-# Examples: 
-# # "settings.json"
-# # "/myfolder/settings.json"
-# # "/mnt/user/system/PlexCache/settings.json"
-# # "myspecialfilename.json"
-# # "/myfolder/myspecialfilename.json"
+log_file="/mnt/user/system/PlexCache/plex_cache_script.log"
 settings_filename = "/mnt/user/system/PlexCache/settings.json"
 
 # Check if the above file exists
@@ -31,7 +28,7 @@ try:
     skip_users = settings_data['skip_users']
     watchlist_toggle = settings_data['watchlist_toggle']
     watchlist_episodes = int(settings_data['watchlist_episodes'])
-    DAYS_TO_MONITOR = int(settings_data['DAYS_TO_MONITOR'])
+    days_to_monitor = int(settings_data['days_to_monitor'])
     cache_dir = settings_data['cache_dir']
     plex_source = settings_data['plex_source']
     real_source = settings_data['real_source']
@@ -44,24 +41,69 @@ try:
 except KeyError as e:
     exit(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
 
-
 processed_files = []
-files = []
+fileToCache = []
 files_to_skip = []
 watched_files = []
 watched_to_remove = []
 media_to_move = []
 plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 sessions = plex.sessions()
-
 if sessions:
     if skip != "skip":
         exit('There is an active session. Exiting...')
 
+# Set up logging
+logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+if debug in ['y', 'yes']:
+    print("Debug mode is active, no file will be moved.")
+    logging.info("Debug mode is active, no file will be moved.")
+
+def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, user=None):
+    if user:
+        username = str(user).split(":")[-1].rstrip(">")
+        try:
+            plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
+        except Exception:
+            print(f"Error: Failed to Fetch {username} onDeck media")
+            logging.error(f"Error: Failed to Fetch {username} onDeck media")
+            return []
+    else:
+        plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+        main_username = plex.myPlexAccount().title
+        print(f"Fetching {main_username}'s onDeck media...")
+        logging.info(f"Fetching {main_username}'s onDeck media...")
+    on_deck_files = []
+    for video in plex.library.onDeck():
+        if video.section().key in valid_sections:
+            delta = datetime.now() - video.lastViewedAt
+            if isinstance(video, Episode) and delta.days <= days_to_monitor:
+                for media in video.media:
+                    on_deck_files.extend(part.file for part in media.parts)
+                show = video.grandparentTitle
+                library_section = video.section()
+                episodes = list(library_section.search(show)[0].episodes())
+                current_season = video.parentIndex
+                next_episodes = []
+                for episode in episodes:
+                    if (episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index)) and len(next_episodes) < number_episodes:
+                        next_episodes.append(episode)
+                    if len(next_episodes) == number_episodes:
+                        break
+                for episode in next_episodes:
+                    for media in episode.media:
+                        on_deck_files.extend(part.file for part in media.parts)
+            elif isinstance(video, Movie) and delta.days <= days_to_monitor:
+                for media in video.media:
+                    on_deck_files.extend(part.file for part in media.parts)
+    return on_deck_files
 
 # Function to fetch watchlist media files for the main user
-def watchlist(watchlist_episodes):
-    print("Fetching main user's watchlist media...")
+def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
+    main_username = plex.myPlexAccount().title
+    print(f"Fetching {main_username}'s watchlist media...")
+    logging.info(f"Fetching {main_username}'s watchlist media...")
     user_files = []
     account = MyPlexAccount(PLEX_TOKEN)
     watchlist = account.watchlist(filter='available')
@@ -90,86 +132,40 @@ def watchlist(watchlist_episodes):
                     user_files.append((file.media[0].parts[0].file))
     return user_files or []
 
-# Function to fetch onDeck media files for the other users
-def otherusers(user, number_episodes):
-    username = str(user)
-    username = username.split(":")[-1].rstrip(">")
-    if user.get_token(plex.machineIdentifier) in skip_users:
-        print("Skipping", username, "onDeck media...")
-        return []
-    try:
-        user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
-    except:
-        print("Error: Failed to Fetch", username, "onDeck media")
-        return []
-    user_files = []
-    for video in user_plex.library.onDeck():
-        if video.section().key in valid_sections:
-            delta = datetime.now() - video.lastViewedAt
-            if delta.days <= DAYS_TO_MONITOR:
-                if isinstance(video, Episode):  # TV Series
-                    for media in video.media:
-                        for part in media.parts:                   
-                            show = video.grandparentTitle
-                            # Get the library the video belongs to
-                            library_section = video.section()
-                            # Get the episodes of the show in the library
-                            episodes = [e for e in library_section.search(show)[0].episodes()]  # Fetches the next 5 episodes
-                            next_episodes = []
-                            current_season = video.parentIndex
-                            user_files.append((part.file))
-                            for episode in episodes:
-                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < (number_episodes):
-                                    next_episodes.append(episode)
-                                if len(next_episodes) == number_episodes:
-                                    break
-                            for episode in next_episodes:  # Adds the episodes
-                                for media in episode.media:
-                                    for part in media.parts:
-                                        user_files.append((part.file))
-                else:  # Movies
-                    for media in video.media:
-                        for part in media.parts:
-                            user_files.append((part.file))
-    return user_files or []
-
-# Function to fetch onDeck media files for the main user
-def mainuser(number_episodes):
-    print("Fetching main user's onDeck media...")
-    user_files = []
-    for video in plex.library.onDeck():
-        # Apply section filter
-        if video.section().key in valid_sections:
-            delta = datetime.now() - video.lastViewedAt
-            if int(delta.days) <= DAYS_TO_MONITOR:
-                if isinstance(video, Episode):  # TV Series
-                    for media in video.media:
-                        for part in media.parts:
-                            show = video.grandparentTitle
-                            # Get the library the video belongs to
-                            library_section = video.section()
-                            # Get the episodes of the show in the library
-                            episodes = [e for e in library_section.search(show)[0].episodes()]  # Fetches the next 5 episodes
-                            next_episodes = []
-                            current_season = video.parentIndex
-                            files.append((part.file))
-                            for episode in episodes:
-                                if episode.parentIndex > current_season or (episode.parentIndex == current_season and episode.index > video.index) and len(next_episodes) < (number_episodes):
-                                    next_episodes.append(episode)
-                                if len(next_episodes) == number_episodes:
-                                    break
-                            for episode in next_episodes:  # Adds the episodes
-                                for media in episode.media:
-                                    for part in media.parts:
-                                        files.append((part.file))
-                else:  # Movies
-                    for media in video.media:
-                        for part in media.parts:
-                            files.append((part.file))
-    return user_files or []
+def get_watched_media(plex, valid_sections, user=None):
+    watched_files = []
+    def fetch_user_watched_media(user_plex, username, token=None):
+        nonlocal watched_files
+        print(f"Fetching {username}'s watched media...")
+        logging.info(f"Fetching {username}'s watched media...")
+        try:
+            for section_id in valid_sections:
+                section = plex.library.sectionByID(section_id)
+                for video in section.search(unwatched=False):
+                    if video.TYPE == 'show':
+                        for episode in video.episodes():
+                            for media in episode.media:
+                                watched_files.extend(part.file for part in media.parts if episode.isPlayed)
+                    else:
+                        watched_files.append(video.media[0].parts[0].file)
+        except Exception:
+            print(f"Error: Failed to Fetch {username}'s watched media")
+            logging.info(f"Error: Failed to Fetch {username}'s watched media")
+    # Fetch main user's watched media
+    main_username = plex.myPlexAccount().title
+    fetch_user_watched_media(plex, main_username)
+    # Fetch other users' watched media
+    for user in plex.myPlexAccount().users():
+        username = str(user).split(":")[-1].rstrip(">")
+        user_token = user.get_token(plex.machineIdentifier)
+        user_plex = PlexServer(PLEX_URL, user_token)
+        fetch_user_watched_media(user_plex, username, token=user_token)
+    return watched_files
 
 # Function to change the paths to the correct ones
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
+    print("Editing file paths...")
+    logging.info("Editing file paths...")
     for i, file_path in enumerate(files):
         # Replace the plex_source with the real_source
         file_path = file_path.replace(plex_source, real_source)
@@ -182,16 +178,68 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
         files[i] = file_path
     return files or []
 
-# Fetches onDeck media for the main user
-files.extend(mainuser(number_episodes))  
-if watchlist_toggle in ['y', 'yes']:
-    # Fetches watchlist media for the main user
-    files.extend(watchlist(watchlist_episodes))
+# Function to fetch the subtitles
+def get_media_subtitles(media_files, files_to_skip=None):
+    if files_to_skip is None:
+        files_to_skip = set()
+    print("Fetching subtitles...")
+    logging.info("Fetching subtitles...")
+    processed_files = set()
+    for file in media_files:
+        if file in files_to_skip:
+            continue
+        if file in processed_files:
+            continue
+        processed_files.add(file)
+        directory_path = os.path.dirname(file)
+        file_name, file_ext = os.path.splitext(os.path.basename(file))
+        files_in_dir = os.listdir(directory_path)
+        subtitle_files = [os.path.join(directory_path, file) for file in files_in_dir if file.startswith(file_name) and file != file_name+file_ext]
+        if subtitle_files:
+            for subtitle in subtitle_files:
+                if subtitle not in media_files:
+                    media_files.append(subtitle)
+    return media_files or []
 
-if users_toggle in ['y', 'yes']:
-    # Fetches onDeck media for the other users
-    for user in plex.myPlexAccount().users():  
-        files.extend(otherusers(user, number_episodes))
+def move_media_files(files, real_source, cache_dir, unraid, debug, destination, files_to_skip=None):
+    if files_to_skip is None:
+        files_to_skip = set()
+    print(f"Moving media files to {destination}...")
+    logging.info(f"Moving media files to {destination}...")
+    processed_files = set()
+    for fileToMove in files:
+        if fileToMove in files_to_skip:
+            continue
+        if fileToMove in processed_files:
+            continue
+        processed_files.add(fileToMove)
+        user_path = os.path.dirname(fileToMove)
+        cache_path = user_path.replace(real_source, cache_dir)
+        user_file_name = user_path + "/" + os.path.basename(fileToMove)
+        cache_file_name = cache_path + "/" + os.path.basename(fileToMove)
+        move = None
+        if destination == 'array':
+            if unraid in ['y', 'yes']:
+                user_path = user_path.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
+            if not os.path.exists(user_path):  # Create destination folder if doesn't exists
+                os.makedirs(user_path)
+            if os.path.isfile(cache_file_name):
+                move = f"mv -v \"{cache_file_name}\" \"{user_path}\""
+        if destination == 'cache':
+            if not os.path.exists(cache_path):  # Create destination folder if doesn't exists
+                os.makedirs(cache_path)
+            if not os.path.isfile(cache_file_name):
+                if unraid in ['y', 'yes']:
+                    user_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
+                move = f"mv -v \"{user_file_name}\" \"{user_path}\""
+        if debug in ['y', 'yes']:
+            if move != None:
+                print(move)
+                logging.info(move)
+        else:
+            result = os.system(move)
+            if result != 0:
+                logging.error(f"Error executing move command: {move}")
 
 # Fetches the current playing media
 if sessions:
@@ -203,149 +251,90 @@ if sessions:
         media_item = plex.fetchItem(int(media_id))
         # Get the title of the media item
         media_title = media_item.title
-        print("Noticed an active session, skipping: ", media_title)
+        print(f"Active session detected, skipping: {media_title}")
+        logging.info(f"Active session detected, skipping: {media_title}")
         # Get the full path of the media item
         media_path = media_item.media[0].parts[0].file
         files_to_skip.append(media_path)
 
-
-if watched_move in ['y', 'yes']:
-    #Fetches watched media
-    for user in plex.myPlexAccount().users():  # All the other users
+# Fetch onDeck media
+fileToCache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes))
+if users_toggle in ['y', 'yes']:
+    for user in plex.myPlexAccount().users():
         username = str(user)
         username = username.split(":")[-1].rstrip(">")
-        print("Fetching", username, "watched media...")
-        try:
-            user_plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
-            for section_id in valid_sections:
-                section = plex.library.sectionByID(section_id)
-                for video in section.search(unwatched=False):
-                    if video.TYPE == 'show':
-                        for episode in video.episodes():
-                            for media in episode.media:
-                                for part in media.parts:
-                                    if episode.isPlayed:
-                                        watched_files.append(part.file)  
-                    else:
-                        watched_files.append(video.media[0].parts[0].file)
-        except:
-            print("Error: Failed to Fetch", username, "watched media")
-    # Search for subtitle files (any file with similar file name but different extension)
-    processed_files = set()
-    print("Adjusting paths for watched media...")
+        if user.get_token(plex.machineIdentifier) in skip_users:
+            print(f"Skipping {username}'s onDeck media...")
+            logging.info(f"Skipping {username}'s onDeck media...")
+            continue
+        print(f"Fetching {username}'s onDeck media...")
+        logging.info(f"Fetching {username}'s onDeck media...")
+        fileToCache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, user=user))
+
+# Fetch watchlist media
+cache_file = Path("watchlist_cache.json")
+if watchlist_toggle in ['y', 'yes']:
+    if cache_file.exists() and (datetime.now() - datetime.fromtimestamp(cache_file.stat().st_mtime) <= timedelta(hours=1)):
+        logging.info("Loading watchlist media from cache...")
+        with cache_file.open('r') as f:
+            fileToCache.extend(json.load(f))
+    else:
+        logging.info("Fetching watchlist media...")
+        watchlist_media = fetch_watchlist_media(plex, valid_sections, watchlist_episodes)
+        fileToCache.extend(watchlist_media)
+        with cache_file.open('w') as f:
+            json.dump(watchlist_media, f)
+modify_file_paths(fileToCache, plex_source, real_source, plex_library_folders, nas_library_folders)
+fileToCache.extend(get_media_subtitles(fileToCache, files_to_skip=files_to_skip))
+
+if watched_move in ['y', 'yes']:
+    watched_files = get_watched_media(plex, valid_sections)
     modify_file_paths(watched_files, plex_source, real_source, plex_library_folders, nas_library_folders)
-    print("Fetching watched media subtitles...")
-    for count, file in enumerate(watched_files):
-        if file in processed_files:
-            continue
-        processed_files.add(file)
-        directory_path = os.path.dirname(file)
-        directory_path = directory_path.replace(plex_source, real_source)
-        file_name, file_ext = os.path.splitext(os.path.basename(file))
-        files_in_dir = os.listdir(directory_path)
-        subtitle_files = [os.path.join(directory_path, file) for file in files_in_dir if file.startswith(file_name) and file != file_name+file_ext]
-        if subtitle_files:
-            for subtitle in subtitle_files:
-                if subtitle not in files:
-                    watched_files.append(subtitle)
-    # Moves watched media from the cache drive to the array
-    if debug in ['y', 'yes']:
-        print("***Debug mode is on***")
-    print("Moving watched media files...")
-    processed_files = set()
-    for count, file in enumerate(watched_files):
-        if file in processed_files:
-            continue
-        # Check and removes for duplicates between watched and ondeck/watchlist media
-        temp_array = {os.path.basename(file_path) for file_path in watched_files}
-        files = [file_path for file_path in files if os.path.basename(file_path) not in temp_array]
-        processed_files.add(file)
-        user_path = os.path.dirname(file)
-        cache_path = user_path.replace(real_source, cache_dir)
-        user_file_name = user_path + "/" + os.path.basename(file)
-        cache_file_name = cache_path + "/" + os.path.basename(file)
-        if unraid in ['y', 'yes']:
-            user_path = user_path.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
-        if not os.path.exists(user_path):  # Create destination folder if doesn't exists
-            os.makedirs(user_path)
-        if os.path.isfile(cache_file_name):
-            move = f"mv -v \"{cache_file_name}\" \"{user_path}\""
-            if debug in ['y', 'yes']:
-                print(move)
-            else:
-                os.system(move)
+    watched_files.extend(get_media_subtitles(watched_files, files_to_skip=files_to_skip))
+    watched_files = [file for file in watched_files if os.path.isfile(file.replace(real_source, cache_dir))]
+    try:
+        total_size = sum(os.path.getsize(file) for file in watched_files)
+        free_space = os.statvfs(real_source).f_bfree * os.statvfs(cache_dir).f_frsize
+        print(f"Free space on the array: {free_space / (1024**3):.2f} GB")
+        logging.info(f"Free space on the array: {free_space / (1024**3):.2f} GB")
+        print(f"Total size of watched media files: {total_size / (1024**3):.2f} GB")
+        logging.info(f"Total size of watched media files: {total_size / (1024**3):.2f} GB")
+        if total_size > free_space:
+            raise ValueError("Not enough space on destination drive.")
+    except Exception as e:
+        logging.error(f"Error checking free space: {str(e)}")
+        exit(f"Error: {str(e)}")
+    try:
+        logging.info("Moving watched media...")
+        print("Moving watched media...")
+        move_media_files(watched_files, real_source, cache_dir, unraid, debug, destination='array', files_to_skip=files_to_skip)
+    except Exception as e:
+        logging.error(f"Error moving media files: {str(e)}")
+        exit(f"Error: {str(e)}")
 
+# Error handling and logging for checking free space
+try:
+    media_to_move = [file for file in fileToCache if not os.path.isfile(os.path.dirname(file).replace(plex_source, real_source).replace(real_source, cache_dir) + "/" + os.path.basename(file))]
+    total_size = sum(os.path.getsize(file) for file in media_to_move)
+    free_space = os.statvfs(cache_dir).f_bfree * os.statvfs(cache_dir).f_frsize
+    print(f"Free space on cache drive: {free_space / (1024**3):.2f} GB")
+    logging.info(f"Free space on cache drive: {free_space / (1024**3):.2f} GB")
+    print(f"Total size of media files: {total_size / (1024**3):.2f} GB")
+    logging.info(f"Total size of media files: {total_size / (1024**3):.2f} GB")
+    if total_size > free_space:
+        raise ValueError("Not enough space on destination drive.")
+except Exception as e:
+    logging.error(f"Error checking free space: {str(e)}")
+    exit(f"Error: {str(e)}")
 
+# Error handling and logging for moving media files
+try:
+    logging.info("Moving media to the cache...")
+    print("Moving media to the cache...")
+    move_media_files(fileToCache, real_source, cache_dir, unraid, debug, destination='cache', files_to_skip=files_to_skip)
+except Exception as e:
+    logging.error(f"Error moving media files: {str(e)}")
+    exit(f"Error: {str(e)}")
 
-print("Adjusting paths...")
-# For the media to be moved
-modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders)
-
-# Helps calculating the total size of the files that needs to be moved to the cache
-for file in files:
-    media_file_path = os.path.dirname(file)
-    user_path = media_file_path.replace(plex_source, real_source)
-    cache_path = user_path.replace(real_source, cache_dir)
-    cache_file_name = cache_path + "/" + os.path.basename(file)
-    if not os.path.isfile(cache_file_name):
-        media_to_move.append(file)
-
-#Check for free space before attempting to move the files
-total_size = sum(os.path.getsize(file) for file in media_to_move)
-free_space = os.statvfs(cache_dir).f_bfree * os.statvfs(cache_dir).f_frsize
-print(f"Free space on cache drive: {free_space / (1024**3):.2f} GB")
-print(f"Total size of media files: {total_size / (1024**3):.2f} GB")
-if total_size > free_space:
-    exit("Error: Not enough space on destination drive.")
-
-# Search for subtitle files (any file with similar file name but different extension)
-processed_files = set()
-print("Fetching subtitles...")
-for count, fileToCache in enumerate(files):
-    if fileToCache in processed_files:
-        continue
-    processed_files.add(fileToCache)
-    directory_path = os.path.dirname(fileToCache)
-    if fileToCache in files_to_skip:
-        print("This files are currently used, skipping...")
-        print(fileToCache)
-        continue
-    directory_path = directory_path.replace(plex_source, real_source)
-    file_name, file_ext = os.path.splitext(os.path.basename(fileToCache))
-    files_in_dir = os.listdir(directory_path)
-    subtitle_files = [os.path.join(directory_path, file) for file in files_in_dir if file.startswith(file_name) and file != file_name+file_ext]
-    if subtitle_files:
-        for subtitle in subtitle_files:
-            if subtitle not in files:
-                files.append(subtitle)
-
-# Correct all paths locating the file in the unraid array and move the files to the cache drive
-processed_files = set()
-print("Moving to media files to cache drive...")
-if debug in ['y', 'yes']:
-    print("***Debug mode is on***")
-for count, fileToCache in enumerate(files):
-    if fileToCache in processed_files:
-        continue
-    if fileToCache in files_to_skip:
-        continue
-    processed_files.add(file)
-    user_path = os.path.dirname(fileToCache)
-    cache_path = user_path.replace(real_source, cache_dir)
-    user_file_name = user_path + "/" + os.path.basename(fileToCache)
-    cache_file_name = cache_path + "/" + os.path.basename(fileToCache)
-    if not os.path.exists(cache_path):  # If the path that will end up containing the media file does not exist, this lines will create it
-        os.makedirs(cache_path)
-    if not os.path.isfile(cache_file_name):
-        if unraid in ['y', 'yes']:
-            disk_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
-        else:
-            disk_file_name = user_file_name
-        move = f"mv -v \"{disk_file_name}\" \"{cache_path}\""
-        if debug == "yes":
-            print(move)
-        else:
-            os.system(move)
-
-print("Script executed.")
-# Thank you for using my script github.com/bexem/PlexOnDeckCache
+print("Script executed\nThank you for using my script github.com/bexem/PlexCache")
+logging.info("Script executed\nThank you for using my script github.com/bexem/PlexCache")
