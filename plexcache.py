@@ -259,11 +259,11 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
         processed_files.add(fileToMove)
         user_path = os.path.dirname(fileToMove)
         cache_path = user_path.replace(real_source, cache_dir)
-        user_file_name = user_path + "/" + os.path.basename(fileToMove)
         cache_file_name = cache_path + "/" + os.path.basename(fileToMove)
         move = None
         if unraid in ['y', 'yes']:
             user_path = user_path.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
+        user_file_name = user_path + "/" + os.path.basename(fileToMove)
         if destination == 'array':
             if not os.path.exists(user_path):  # Create destination folder if doesn't exists
                 os.makedirs(user_path)
