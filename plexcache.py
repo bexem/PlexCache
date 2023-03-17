@@ -106,7 +106,7 @@ def otherusers(user, number_episodes):
     for video in user_plex.library.onDeck():
         if video.section().key in valid_sections:
             delta = datetime.now() - video.lastViewedAt
-            if delta.days <= DAYS_TO_MONITOR:
+            if delta.days <= days_to_monitor:
                 if isinstance(video, Episode):  # TV Series
                     for media in video.media:
                         for part in media.parts:                   
@@ -141,7 +141,7 @@ def mainuser(number_episodes):
         # Apply section filter
         if video.section().key in valid_sections:
             delta = datetime.now() - video.lastViewedAt
-            if int(delta.days) <= DAYS_TO_MONITOR:
+            if int(delta.days) <= days_to_monitor:
                 if isinstance(video, Episode):  # TV Series
                     for media in video.media:
                         for part in media.parts:
