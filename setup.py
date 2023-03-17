@@ -159,10 +159,10 @@ def setup():
                 print("Invalid choice. Please enter either yes or no")
 
     while True:
-        if 'DAYS_TO_MONITOR' not in settings_data:
+        if 'days_to_monitor' not in settings_data:
             days = input('\nMaximum age of the media onDeck to be fetched? (default: 99) ') or '99'
             if days.isdigit():
-                settings_data['DAYS_TO_MONITOR'] = days
+                settings_data['days_to_monitor'] = days
                 break
             else:
                 print("User input is not a number")

@@ -17,7 +17,7 @@
     "skip_users": [],
     "watchlist_toggle": "no",
     "watchlist_episodes": "0",
-    "DAYS_TO_MONITOR": "99",
+    "days_to_monitor": "99",
     "cache_dir": "/mnt/cache/",
     "real_source": "/mnt/user/",
     "nas_library_folders": [],
