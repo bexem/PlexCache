@@ -338,9 +338,7 @@ try:
     logging.info("Skipping files already in the cache drive")
     print("Skipping files already in the cache drive")
     for file in fileToCache:
-        media_file_path = os.path.dirname(file)
-        user_path = media_file_path.replace(plex_source, real_source)
-        cache_path = user_path.replace(real_source, cache_dir)
+        cache_path = os.path.dirname(file).replace(real_source, cache_dir)
         cache_file_name = cache_path + "/" + os.path.basename(file)
         if not os.path.isfile(cache_file_name):
             media_to_move.append(file)
