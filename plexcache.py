@@ -1,6 +1,4 @@
-import os
-import json
-import logging
+import os, json, logging, glob
 from pathlib import Path
 from plexapi.server import PlexServer
 from plexapi.video import Episode
@@ -8,14 +6,35 @@ from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
 from datetime import datetime, timedelta
 
-log_file="/mnt/user/system/PlexCache/plex_cache_script.log"
 settings_filename = "/mnt/user/system/PlexCache/settings.json"
+# Set the maximum number of log files allowed
+max_log_files = 5
+
+log_file_pattern = "plex_cache_script_*.log"
+log_file_folder = "/mnt/user/system/PlexCache/"
+log_file_prefix = log_file_pattern[:-1]
+if not os.path.exists(log_file_folder):
+    os.makedirs(log_file_folder)
+existing_log_files = glob.glob(os.path.join(log_file_folder, log_file_pattern))
+# Check if the number of log files exceeds the limit
+if len(existing_log_files) >= max_log_files:
+    # Sort the log files by creation time
+    existing_log_files.sort(key=os.path.getctime)
+    # Remove the oldest log file(s)
+    for i in range(len(existing_log_files) - max_log_files + 1):
+        os.remove(existing_log_files[i])
+# Create a new log file for the current session
+current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+log_file = os.path.join(log_file_folder, f"{log_file_prefix}{current_time}.log")
+# Set up logging
+logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Check if the above file exists
 if os.path.exists(settings_filename):
     with open(settings_filename, 'r') as f:
         settings_data = json.load(f)
 else:
+    logging.error("Settings file not found, please fix the variable accordingly.")
     exit("Settings file not found, please fix the variable accordingly.")
 
 # Reads the settings file and all the settings
@@ -39,6 +58,7 @@ try:
     skip = settings_data['skip']
     debug = settings_data['debug']
 except KeyError as e:
+    logging.error(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
     exit(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
 
 processed_files = []
@@ -51,10 +71,8 @@ plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 sessions = plex.sessions()
 if sessions:
     if skip != "skip":
+        logging.warning('There is an active session. Exiting...')
         exit('There is an active session. Exiting...')
-
-# Set up logging
-logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 if debug in ['y', 'yes']:
     print("Debug mode is active, no file will be moved.")
@@ -231,15 +249,17 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
             if not os.path.isfile(cache_file_name):
                 if unraid in ['y', 'yes']:
                     user_file_name = user_file_name.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
-                move = f"mv -v \"{user_file_name}\" \"{user_path}\""
+                move = f"mv -v \"{user_file_name}\" \"{cache_path}\""
         if debug in ['y', 'yes']:
             if move != None:
                 print(move)
-                logging.info(move)
         else:
-            result = os.system(move)
-            if result != 0:
-                logging.error(f"Error executing move command: {move}")
+            if move != None:
+                result = os.system(move)
+                if result != 0:
+                    logging.error(f"Error executing move command: {move}")
+        if move != None:
+            logging.info(move)
 
 # Fetches the current playing media
 if sessions:
