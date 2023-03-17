@@ -14,6 +14,7 @@ The script was initially developed for Unraid but is compatible with other syste
 - Move relative subtitles along with the media moved to or from the cache.
 - Filter media older than a specified number of days.
 - Run in debug mode for testing.
+- Use of a log file for easy debugging.
 - Exit the script if any active session or skip the currently playing media.
 - Find your missing unicorn.
 
