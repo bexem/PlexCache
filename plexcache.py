@@ -383,7 +383,7 @@ try:
     free_space, free_space_unit = get_free_space(cache_dir)
     total_size, total_size_unit = get_total_size_of_files(media_to_cache)
     print(f"Free space on the array: {free_space:.2f} {free_space_unit}")
-    print(f"Total size of watched media files to be moved to the array: {total_size:.2f} {total_size_unit}")
+    print(f"Total size of onDeck media files to be moved to the cache: {total_size:.2f} {total_size_unit}")
     logging.info(f"Free space on the array: {free_space:.2f} {free_space_unit}")
     logging.info(f"Total size of watched media files to be moved to the array: {total_size:.2f} {total_size_unit}")
     if total_size * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[total_size_unit]) > free_space * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[free_space_unit]):
