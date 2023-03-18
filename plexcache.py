@@ -66,7 +66,7 @@ processed_files = []
 fileToCache = []
 files_to_skip = []
 watched_files = []
-watched_to_remove = []
+media_to = []
 media_to_cache = []
 media_to_array = []
 plex = PlexServer(PLEX_URL, PLEX_TOKEN)
@@ -198,6 +198,25 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
         files[i] = file_path
     return files or []
 
+def filter_files (files, destination='cache'):
+    processed_files = set()
+    media_to = []
+    for file in files:
+        if file in processed_files:
+            continue
+        processed_files.add(file)   
+        cache_path = os.path.dirname(file).replace(real_source, cache_dir)
+        cache_file_name = cache_path + "/" + os.path.basename(file)
+        if destination == 'array':
+            if file in fileToCache:
+                continue #Skip if media is also present in the onDeck
+            if os.path.isfile(cache_file_name):
+                media_to.append(file)
+        elif destination == 'cache':
+            if not os.path.isfile(cache_file_name):
+                media_to.append(file)
+    return media_to or []
+
 # Function to fetch the subtitles
 def get_media_subtitles(media_files, files_to_skip=None):
     if files_to_skip is None:
@@ -268,9 +287,6 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
             if not os.path.exists(user_path):  # Create destination folder if doesn't exists
                 os.makedirs(user_path)
             if os.path.isfile(cache_file_name):
-                if fileToMove in fileToCache:
-                    logging.info(f"Skipping {os.path.basename(fileToMove)} because is also in the files to be moved to cache.")
-                    continue
                 move = f"mv -v \"{cache_file_name}\" \"{user_path}\""
         if destination == 'cache':
             if not os.path.exists(cache_path):  # Create destination folder if doesn't exists
@@ -339,15 +355,7 @@ if watched_move in ['y', 'yes']:
     watched_files = get_watched_media(plex, valid_sections)
     modify_file_paths(watched_files, plex_source, real_source, plex_library_folders, nas_library_folders)
     watched_files.extend(get_media_subtitles(watched_files, files_to_skip=files_to_skip))
-    processed_files = set()
-    for file in fileToCache:
-        if file in processed_files:
-            continue
-        processed_files.add(file) 
-        cache_path = os.path.dirname(file).replace(real_source, cache_dir)
-        cache_file_name = cache_path + "/" + os.path.basename(file)
-        if os.path.isfile(cache_file_name):
-            media_to_array.append(file)
+    media_to_array=filter_files(watched_files, destination='array')
     try:
         free_space, free_space_unit = get_free_space(real_source)
         total_size, total_size_unit = get_total_size_of_files(media_to_array)
@@ -369,20 +377,11 @@ if watched_move in ['y', 'yes']:
         exit(f"Error: {str(e)}")
 
 try:
-    logging.info("Skipping files already in the cache drive")
-    print("Skipping files already in the cache drive")
     processed_files = set()
-    for file in fileToCache:
-        if file in processed_files:
-            continue
-        processed_files.add(file)   
-        cache_path = os.path.dirname(file).replace(real_source, cache_dir)
-        cache_file_name = cache_path + "/" + os.path.basename(file)
-        if not os.path.isfile(cache_file_name):
-            media_to_cache.append(file)
+    media_to_cache=filter_files(fileToCache, destination='cache')
     free_space, free_space_unit = get_free_space(cache_dir)
     total_size, total_size_unit = get_total_size_of_files(media_to_cache)
-    print(f"Free space on the array: {free_space:.2f} {free_space_unit}")
+    print(f"Free space on the cache: {free_space:.2f} {free_space_unit}")
     print(f"Total size of onDeck media files to be moved to the cache: {total_size:.2f} {total_size_unit}")
     logging.info(f"Free space on the array: {free_space:.2f} {free_space_unit}")
     logging.info(f"Total size of watched media files to be moved to the array: {total_size:.2f} {total_size_unit}")
