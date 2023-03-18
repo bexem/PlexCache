@@ -20,7 +20,11 @@
     "days_to_monitor": "99",
     "cache_dir": "/mnt/cache/",
     "real_source": "/mnt/user/",
-    "nas_library_folders": [],
+    "nas_library_folders": [
+        "movies",
+        "anime",
+        "tvseries"
+    ],
     "unraid": "yes",
     "watched_move": "no",
     "skip": "skip",
