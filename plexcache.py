@@ -239,15 +239,14 @@ def get_media_subtitles(media_files, files_to_skip=None):
             continue
         processed_files.add(file)
         directory_path = os.path.dirname(file)
-        if not os.path.exists(directory_path): # Theoretically not needed but avoiding potential error in case of misconfiguration
-            os.makedirs(directory_path)
-        file_name, file_ext = os.path.splitext(os.path.basename(file))
-        files_in_dir = os.listdir(directory_path)
-        subtitle_files = [os.path.join(directory_path, file) for file in files_in_dir if file.startswith(file_name) and file != file_name+file_ext]
-        if subtitle_files:
-            for subtitle in subtitle_files:
-                if subtitle not in media_files:
-                    media_files.append(subtitle)
+        if os.path.exists(directory_path):
+            file_name, file_ext = os.path.splitext(os.path.basename(file))
+            files_in_dir = os.listdir(directory_path)
+            subtitle_files = [os.path.join(directory_path, file) for file in files_in_dir if file.startswith(file_name) and file != file_name+file_ext]
+            if subtitle_files:
+                for subtitle in subtitle_files:
+                    if subtitle not in media_files:
+                        media_files.append(subtitle)
     return media_files or []
 
 # Function to convert size to readable format
