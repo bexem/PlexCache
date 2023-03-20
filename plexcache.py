@@ -239,6 +239,8 @@ def get_media_subtitles(media_files, files_to_skip=None):
             continue
         processed_files.add(file)
         directory_path = os.path.dirname(file)
+        if not os.path.exists(directory_path): # Theoretically not needed but avoiding potential error in case of misconfiguration
+            os.makedirs(directory_path)
         file_name, file_ext = os.path.splitext(os.path.basename(file))
         files_in_dir = os.listdir(directory_path)
         subtitle_files = [os.path.join(directory_path, file) for file in files_in_dir if file.startswith(file_name) and file != file_name+file_ext]
@@ -343,7 +345,10 @@ if watchlist_toggle in ['y', 'yes']:
         fileToCache.extend(watchlist_media)
         with watchlist_cache_file.open('w') as f:
             json.dump(watchlist_media, f)
+
+# Edit file paths
 modify_file_paths(fileToCache, plex_source, real_source, plex_library_folders, nas_library_folders)
+# Fetches subtitles
 fileToCache.extend(get_media_subtitles(fileToCache, files_to_skip=files_to_skip))
 
 # Start fetching and moving watched media
