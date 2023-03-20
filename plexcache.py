@@ -164,8 +164,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
 # Function to fetch watched media files
 def get_watched_media(plex, valid_sections, user=None):
     watched_files = []
-    def fetch_user_watched_media(username, token):
-        plex = PlexServer(PLEX_URL, user_token)
+    def fetch_user_watched_media(user_plex, username, token=None):
         nonlocal watched_files
         print(f"Fetching {username}'s watched media...")
         logging.info(f"Fetching {username}'s watched media...")
@@ -182,14 +181,14 @@ def get_watched_media(plex, valid_sections, user=None):
         except Exception:
             print(f"Error: Failed to Fetch {username}'s watched media")
             logging.info(f"Error: Failed to Fetch {username}'s watched media")
-    main_username = plex.myPlexAccount().title
+    main_username = plex.myPlexAccount().title # Fetch main user's watched media
     fetch_user_watched_media(plex, main_username)
-    for user in plex.myPlexAccount().users():
+    for user in plex.myPlexAccount().users(): # Fetch other users' watched media
         username = user.title
         user_token = user.get_token(plex.machineIdentifier)
         user_plex = PlexServer(PLEX_URL, user_token)
-        fetch_user_watched_media(user_plex, username)
-    return watched_files or []
+        fetch_user_watched_media(user_plex, username, token=user_token)
+    return watched_files
 
 # Function to change the paths to the correct ones
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
@@ -324,7 +323,7 @@ fileToCache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, nu
 if users_toggle in ['y', 'yes']:
     for user in plex.myPlexAccount().users():
         username = str(user)
-        username = user.title
+        username = username.split(":")[-1].rstrip(">")
         if user.get_token(plex.machineIdentifier) in skip_users:
             print(f"Skipping {username}'s onDeck media...")
             logging.info(f"Skipping {username}'s onDeck media...")
