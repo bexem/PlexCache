@@ -149,7 +149,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
                 if file.TYPE == 'show':
                     episodes = file.episodes()
                     count = 0 
-                    if count < watchlist_episodes:
+                    if count <= watchlist_episodes:
                         if len(episodes) > 0:
                             for episode in episodes[:watchlist_episodes]:
                                 if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
