@@ -149,14 +149,13 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
                 if file.TYPE == 'show':
                     episodes = file.episodes()
                     count = 0 
-                    if count >= watchlist_episodes:
-                        break
-                    if len(episodes) > 0:
-                        for episode in episodes[:watchlist_episodes]:
-                            if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
-                                count += 1
-                                if not episode.isPlayed:
-                                    user_files.append((episode.media[0].parts[0].file))
+                    if count < watchlist_episodes:
+                        if len(episodes) > 0:
+                            for episode in episodes[:watchlist_episodes]:
+                                if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
+                                    count += 1
+                                    if not episode.isPlayed:
+                                        user_files.append((episode.media[0].parts[0].file))
                 else:
                     user_files.append((file.media[0].parts[0].file))
     return user_files or []
@@ -164,7 +163,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
 # Function to fetch watched media files
 def get_watched_media(plex, valid_sections, user=None):
     watched_files = []
-    def fetch_user_watched_media(user_plex, username, token=None):
+    def fetch_user_watched_media(plex, username):
         nonlocal watched_files
         print(f"Fetching {username}'s watched media...")
         logging.info(f"Fetching {username}'s watched media...")
@@ -187,7 +186,7 @@ def get_watched_media(plex, valid_sections, user=None):
         username = user.title
         user_token = user.get_token(plex.machineIdentifier)
         user_plex = PlexServer(PLEX_URL, user_token)
-        fetch_user_watched_media(user_plex, username, token=user_token)
+        fetch_user_watched_media(user_plex, username)
     return watched_files
 
 # Function to change the paths to the correct ones
