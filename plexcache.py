@@ -95,7 +95,7 @@ if sessions:
 # Function to fetch onDeck media files
 def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, user=None):
     if user:
-        username = str(user).split(":")[-1].rstrip(">")
+        username = user.title
         try:
             plex = PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
         except Exception:
@@ -164,7 +164,8 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
 # Function to fetch watched media files
 def get_watched_media(plex, valid_sections, user=None):
     watched_files = []
-    def fetch_user_watched_media(user_plex, username, token=None):
+    def fetch_user_watched_media(username, token):
+        plex = PlexServer(PLEX_URL, user_token)
         nonlocal watched_files
         print(f"Fetching {username}'s watched media...")
         logging.info(f"Fetching {username}'s watched media...")
@@ -182,12 +183,11 @@ def get_watched_media(plex, valid_sections, user=None):
             print(f"Error: Failed to Fetch {username}'s watched media")
             logging.info(f"Error: Failed to Fetch {username}'s watched media")
     main_username = plex.myPlexAccount().title # Fetch main user's watched media
-    fetch_user_watched_media(plex, main_username)
+    fetch_user_watched_media(main_username, PLEX_TOKEN)
     for user in plex.myPlexAccount().users(): # Fetch other users' watched media
         username = str(user).split(":")[-1].rstrip(">")
         user_token = user.get_token(plex.machineIdentifier)
-        user_plex = PlexServer(PLEX_URL, user_token)
-        fetch_user_watched_media(user_plex, username, token=user_token)
+        fetch_user_watched_media(username, user_token)
     return watched_files
 
 # Function to change the paths to the correct ones
@@ -323,7 +323,7 @@ fileToCache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, nu
 if users_toggle in ['y', 'yes']:
     for user in plex.myPlexAccount().users():
         username = str(user)
-        username = username.split(":")[-1].rstrip(">")
+        username = user.title
         if user.get_token(plex.machineIdentifier) in skip_users:
             print(f"Skipping {username}'s onDeck media...")
             logging.info(f"Skipping {username}'s onDeck media...")
