@@ -182,13 +182,14 @@ def get_watched_media(plex, valid_sections, user=None):
         except Exception:
             print(f"Error: Failed to Fetch {username}'s watched media")
             logging.info(f"Error: Failed to Fetch {username}'s watched media")
-    main_username = plex.myPlexAccount().title # Fetch main user's watched media
-    fetch_user_watched_media(main_username, PLEX_TOKEN)
-    for user in plex.myPlexAccount().users(): # Fetch other users' watched media
-        username = str(user).split(":")[-1].rstrip(">")
+    main_username = plex.myPlexAccount().title
+    fetch_user_watched_media(plex, main_username)
+    for user in plex.myPlexAccount().users():
+        username = user.title
         user_token = user.get_token(plex.machineIdentifier)
-        fetch_user_watched_media(username, user_token)
-    return watched_files
+        user_plex = PlexServer(PLEX_URL, user_token)
+        fetch_user_watched_media(user_plex, username)
+    return watched_files or []
 
 # Function to change the paths to the correct ones
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
