@@ -212,11 +212,11 @@ def filter_files (files, destination):
         if file in processed_files:
             continue
         processed_files.add(file)
-        logging.info(file)
+        print(file)
         cache_path = os.path.dirname(file).replace(real_source, cache_dir)
-        logging.info(cache_path)
+        print(cache_path)
         cache_file_name = cache_path + "/" + os.path.basename(file)
-        logging.info(cache_file_name)
+        print(cache_file_name)
         if destination == 'array':
             if file in fileToCache:
                 continue #Skip if media is also present in the onDeck
