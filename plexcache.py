@@ -90,7 +90,7 @@ if debug:
     
 # Check if any active session
 if sessions:
-    if skip != "skip":
+    if skip:
         logging.warning('There is an active session. Exiting...')
         exit('There is an active session. Exiting...')
     else:

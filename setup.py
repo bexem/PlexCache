@@ -3,35 +3,8 @@ from plexapi.server import PlexServer
 from plexapi.exceptions import BadRequest
 
 # The script will create/edit the file in the same folder the script is located, but you can change that
-script_folder="/mnt/user/system/PlexCache/"
+script_folder="./"
 settings_filename = os.path.join(script_folder, "settings.json")
-
-while True:
-    if os.path.exists(settings_filename):
-        try:
-            with open(settings_filename, 'r') as f:
-                settings_data = json.load(f)
-                print("Setting file loaded successfully!\n")
-                break
-        except json.decoder.JSONDecodeError:
-            # If the file exists but is not a valid JSON file, initialize an empty JSON object
-            settings_data = {}
-            print("Setting file initialized successfully!\n")
-            break
-    else:
-        print("Settings file doesn't exist, please check the path:\n")
-        print(settings_filename)
-        creation = input("\nIf the name is correct, do you want to create the file? {Y/n] (default = no) ") or 'no'
-        if creation.lower() in ['y', 'yes']:
-            with open(settings_filename, 'w') as f:
-                json.dump({}, f)
-                settings_data = {}
-                print("Setting file created successfully!\n")
-            break 
-        elif creation.lower() in ['n', 'no']:
-            exit("Exiting as requested, setting file not created.")
-        else:
-            print("Invalid choice. Please enter either yes or no")
         
 # Function to check for a valid plex url
 def is_valid_plex_url(url):
@@ -41,7 +14,6 @@ def is_valid_plex_url(url):
             return True
     except requests.exceptions.RequestException:
         print (response.headers)
-        pass
     print (response.headers)
     return False
 
@@ -159,7 +131,7 @@ def setup():
                 while True:
                     if 'watchlist_cache_expiry' not in settings_data:
                         hours = input('\nDefine the watchlist cache expiry duration in hours (default: 6) ') or '6'
-                        if days.isdigit():
+                        if hours.isdigit():
                             settings_data['watchlist_cache_expiry'] = int(hours)
                             break
                         else:
@@ -282,9 +254,9 @@ def setup():
 
     while True:
         if 'max_concurrent_moves_cache' not in settings_data:
-            days = input('\nHow many files do you want to move from the array to the cache at the same time? (default: 5) ') or '5'
-            if days.isdigit():
-                settings_data['max_concurrent_moves_cache'] = int(days)
+            number = input('\nHow many files do you want to move from the array to the cache at the same time? (default: 5) ') or '5'
+            if number.isdigit():
+                settings_data['max_concurrent_moves_cache'] = int(number)
                 break
             else:
                 print("User input is not a number")
@@ -293,9 +265,9 @@ def setup():
 
     while True:
         if 'max_concurrent_moves_array' not in settings_data:
-            days = input('\nHow many files do you want to move from the cache to the array at the same time? (default: 2) ') or '2'
-            if days.isdigit():
-                settings_data['max_concurrent_moves_array'] = int(days)
+            number = input('\nHow many files do you want to move from the cache to the array at the same time? (default: 2) ') or '2'
+            if number.isdigit():
+                settings_data['max_concurrent_moves_array'] = int(number)
                 break
             else:
                 print("User input is not a number")
@@ -324,12 +296,42 @@ def setup():
     print("If you are happy with your current settings, you can discard this script entirely. \n")
     print("So Long, and Thanks for All the Fish!")
 
-if settings_data.get('firststart'):
-    print("Please answer the following questions: \n")
-    settings_data = {}
-    setup()
-else:
-    print("Configuration exists, you can now run the plexcache.py script. \n")
-    print("If you want to configure the settings again, manually change the variable firstart to off.")
-    print("If instead you are happy with your current settings, you can discard this script entirely. \n")
-    print("So Long, and Thanks for All the Fish!")
+if not os.path.exists(script_folder):
+    exit('Wrong path given, please edit the "script_folder" variable accordingly.')
+
+while True:
+    if os.path.exists(settings_filename):
+        try:
+            with open(settings_filename, 'r') as f:
+                settings_data = json.load(f)
+                print(settings_filename)
+                print("Settings file exists, loading...!\n")
+                if not settings_data.get('firststart'):
+                    print("First start unset or set to yes:\nPlease answer the following questions: \n")
+                    settings_data = {}
+                    setup()
+                else:
+                    print("Configuration exists, you can now run the plexcache.py script. \n")
+                    print("If you want to configure the settings again, manually change the variable firstart to off.")
+                    print("If instead you are happy with your current settings, you can discard this script entirely. \n")
+                    print("So Long, and Thanks for All the Fish!")
+                break
+        except json.decoder.JSONDecodeError:
+            # If the file exists but is not a valid JSON file, initialize an empty JSON object
+            settings_data = {}
+            print("Setting file initialized successfully!\n")
+            break
+    else:
+        print("Settings file doesn't exist, please check the path:\n")
+        print(settings_filename)
+        creation = input("\nIf the name is correct, do you want to create the file? {Y/n] (default = yes) ") or 'yes'
+        if creation.lower() in ['y', 'yes']:
+            with open(settings_filename, 'w') as f:
+                json.dump({}, f)
+                settings_data = {}
+                print("Setting file created successfully!\n")
+            break 
+        elif creation.lower() in ['n', 'no']:
+            exit("Exiting as requested, setting file not created.")
+        else:
+            print("Invalid choice. Please enter either yes or no")
