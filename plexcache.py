@@ -1,11 +1,11 @@
 import os, json, logging, glob, subprocess
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 from pathlib import Path
 from plexapi.server import PlexServer
 from plexapi.video import Episode
 from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
-from datetime import datetime, timedelta
 
 script_folder="/mnt/user/system/PlexCache/"
 settings_filename = os.path.join(script_folder, "settings.json")
@@ -42,13 +42,13 @@ else:
 try:
     PLEX_URL = settings_data['PLEX_URL']
     PLEX_TOKEN = settings_data['PLEX_TOKEN']
-    number_episodes = int(settings_data['number_episodes'])
+    number_episodes = settings_data['number_episodes']
     valid_sections = settings_data['valid_sections']
     users_toggle = settings_data['users_toggle']
     skip_users = settings_data['skip_users']
     watchlist_toggle = settings_data['watchlist_toggle']
-    watchlist_episodes = int(settings_data['watchlist_episodes'])
-    days_to_monitor = int(settings_data['days_to_monitor'])
+    watchlist_episodes = settings_data['watchlist_episodes']
+    days_to_monitor = settings_data['days_to_monitor']
     cache_dir = settings_data['cache_dir']
     plex_source = settings_data['plex_source']
     real_source = settings_data['real_source']
@@ -56,8 +56,8 @@ try:
     plex_library_folders = settings_data['plex_library_folders']
     unraid = settings_data['unraid']
     watched_move = settings_data['watched_move']
-    watchlist_cache_expiry = int(settings_data['watchlist_cache_expiry'])
-    watched_cache_expiry = int(settings_data['watched_cache_expiry'])
+    watchlist_cache_expiry = settings_data['watchlist_cache_expiry']
+    watched_cache_expiry = settings_data['watched_cache_expiry']
     skip = settings_data['skip']
     debug = settings_data['debug']
     max_concurrent_moves_array = settings_data['max_concurrent_moves_array']

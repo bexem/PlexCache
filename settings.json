@@ -12,12 +12,15 @@
         4,
         2
     ],
-    "number_episodes": "5",
-    "users_toggle": "yes",
+    "number_episodes": 5,
+    "users_toggle": true,
     "skip_users": [],
-    "watchlist_toggle": "no",
-    "watchlist_episodes": "0",
-    "days_to_monitor": "99",
+    "watchlist_toggle": false,
+    "watchlist_episodes": 0,
+    "watchlist_cache_expiry": 6,
+    "days_to_monitor": 99,
+    "watched_move": "no",
+    "watched_cache_expiry": 24,
     "cache_dir": "/mnt/cache/",
     "real_source": "/mnt/user/",
     "nas_library_folders": [
@@ -25,9 +28,10 @@
         "anime",
         "tvseries"
     ],
-    "unraid": "yes",
-    "watched_move": "no",
-    "skip": "skip",
-    "debug": "yes",
-    "firststart": "yes"
+    "unraid": true,
+    "max_concurrent_moves_array": 2,
+    "max_concurrent_moves_cache": 5,
+    "skip": true,
+    "debug": true,
+    "firststart": true
 }

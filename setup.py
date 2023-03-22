@@ -49,7 +49,7 @@ def is_valid_plex_url(url):
 # Ask user for input for missing settings
 def setup():
     while 'PLEX_URL' not in settings_data:
-        url = input('\nEnter your plex server address (Example: http://localhost:32400): ')
+        url = input('\nEnter your plex server address (Example: http://localhost:32400 or https://plex.mydomain.ext): ')
         try:
             if is_valid_plex_url(url):
                 print('Valid Plex URL')
@@ -99,7 +99,7 @@ def setup():
         if 'number_episodes' not in settings_data:
             number_episodes = input('\nHow many episodes (digit) do you want fetch (onDeck)? (default: 5) ') or '5'
             if number_episodes.isdigit():
-                settings_data['number_episodes'] = number_episodes
+                settings_data['number_episodes'] = int(number_episodes)
                 break
             else:
                 print("User input is not a number")
@@ -152,7 +152,7 @@ def setup():
                 while True:
                     watchlist_episodes = input('How many episodes do you want fetch (watchlist) (default: 1)? ') or '1'
                     if watchlist_episodes.isdigit():
-                        settings_data['watchlist_episodes'] = watchlist_episodes
+                        settings_data['watchlist_episodes'] = int(watchlist_episodes)
                         break
                     else:
                         print("User input is not a number")
@@ -160,7 +160,7 @@ def setup():
                     if 'watchlist_cache_expiry' not in settings_data:
                         hours = input('\nDefine the watchlist cache expiry duration in hours (default: 6) ') or '6'
                         if days.isdigit():
-                            settings_data['watchlist_cache_expiry'] = hours
+                            settings_data['watchlist_cache_expiry'] = int(hours)
                             break
                         else:
                             print("User input is not a number")
@@ -172,7 +172,7 @@ def setup():
         if 'days_to_monitor' not in settings_data:
             days = input('\nMaximum age of the media onDeck to be fetched? (default: 99) ') or '99'
             if days.isdigit():
-                settings_data['days_to_monitor'] = days
+                settings_data['days_to_monitor'] = int(days)
                 break
             else:
                 print("User input is not a number")
@@ -180,11 +180,49 @@ def setup():
             break
 
     if 'cache_dir' not in settings_data:
-        cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '')  or '/mnt/cache/'
+        cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'
+        while True:
+            test_path = input('\nDo you want to test the given path? [Y/n] (default: yes) ') or 'yes'
+            if test_path.lower() in ['y', 'yes']:
+                if os.path.exists(cache_dir):
+                    print('The path appears to be valid. Settings saved.')
+                    break
+                else:
+                    print('The path appears to be invalid.')
+                    edit_path = input('\nDo you want to edit the path? [Y/n] (default: yes) ') or 'yes'
+                    if edit_path.lower() in ['y', 'yes']:
+                        cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'
+                    elif edit_path.lower() in ['n', 'no']:
+                        break
+                    else:
+                        print("Invalid choice. Please enter either yes or no")
+            elif test_path.lower() in ['n', 'no']:
+                break
+            else:
+                print("Invalid choice. Please enter either yes or no")
         settings_data['cache_dir'] = cache_dir
 
     if 'real_source' not in settings_data:
         real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user/") ').replace('"', '').replace("'", '') or '/mnt/user/'
+        while True:
+            test_path = input('\nDo you want to test the given path? [Y/n] (default: yes) ') or 'yes'
+            if test_path.lower() in ['y', 'yes']:
+                if os.path.exists(real_source):
+                    print('The path appears to be valid. Settings saved.')
+                    break
+                else:
+                    print('The path appears to be invalid.')
+                    edit_path = input('\nDo you want to edit the path? [Y/n] (default: yes) ') or 'yes'
+                    if edit_path.lower() in ['y', 'yes']:
+                        real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user/") ').replace('"', '').replace("'", '') or '/mnt/user/'
+                    elif edit_path.lower() in ['n', 'no']:
+                        break
+                    else:
+                        print("Invalid choice. Please enter either yes or no")
+            elif test_path.lower() in ['n', 'no']:
+                break
+            else:
+                print("Invalid choice. Please enter either yes or no")
         settings_data['real_source'] = real_source
         num_folders = len(plex_library_folders)
         # Ask the user to input a corresponding value for each element in plex_library_folders
@@ -219,7 +257,7 @@ def setup():
                     if 'watched_cache_expiry' not in settings_data:
                         hours = input('\nDefine the watched media cache expiry duration in hours (default: 24) ') or '24'
                         if days.isdigit():
-                            settings_data['watchlist_cache_expiry'] = hours
+                            settings_data['watchlist_cache_expiry'] = int(hours)
                             break
                         else:
                             print("User input is not a number")
@@ -246,7 +284,7 @@ def setup():
         if 'max_concurrent_moves_cache' not in settings_data:
             days = input('\nHow many files do you want to move from the array to the cache at the same time? (default: 5) ') or '5'
             if days.isdigit():
-                settings_data['max_concurrent_moves_cache'] = days
+                settings_data['max_concurrent_moves_cache'] = int(days)
                 break
             else:
                 print("User input is not a number")
@@ -257,7 +295,7 @@ def setup():
         if 'max_concurrent_moves_array' not in settings_data:
             days = input('\nHow many files do you want to move from the cache to the array at the same time? (default: 2) ') or '2'
             if days.isdigit():
-                settings_data['max_concurrent_moves_array'] = days
+                settings_data['max_concurrent_moves_array'] = int(days)
                 break
             else:
                 print("User input is not a number")
