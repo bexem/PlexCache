@@ -8,14 +8,13 @@ from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
 
 script_folder="/mnt/user/system/PlexCache/"
-settings_filename = os.path.join(script_folder, "settings_test.json")
+settings_filename = os.path.join(script_folder, "settings.json")
 watchlist_cache_file = Path(os.path.join(script_folder, "watchlist_cache.json"))
 watched_cache_file = Path(os.path.join(script_folder, "watched_cache.json"))
 log_file_pattern = "plexcache_script_*.log"
 max_log_files = 5
-log_file_prefix = log_file_pattern[:-5]
 
-#Check if the script_folder exists
+# Check if the script_folder exists
 if not os.path.exists(script_folder):
     os.makedirs(script_folder)
 
@@ -29,6 +28,13 @@ if len(existing_log_files) >= max_log_files:
 current_time = datetime.now().strftime("%Y%m%d_%H%M")
 log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}{current_time}.log")
 logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Create or update the symbolic link to the latest log file
+latest_log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}_latest.log")
+if os.path.exists(latest_log_file):
+    os.remove(latest_log_file)  # Remove the existing link if it exists
+
+os.symlink(log_file, latest_log_file)  # Create a new link to the latest log file
 
 # Check if the settings file exists
 if os.path.exists(settings_filename):
