@@ -277,6 +277,8 @@ def get_watched_media(plex, valid_sections, cache_file, user=None):
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
     print("Editing file paths...")
     logging.info("Editing file paths...")
+    if files is None:
+        return []
     files = [file_path for file_path in files if file_path.startswith(plex_source)]
     for i, file_path in enumerate(files):
         file_path = file_path.replace(plex_source, real_source) # Replace the plex_source with the real_source
@@ -312,7 +314,7 @@ def filter_files(files, destination, real_source, cache_dir, fileToCache):
             media_to.append(file)
 
     log_files(media_to, calledby="Filtered media")
-    return media_to
+    return media_to or []
 
 def get_cache_paths(file, real_source, cache_dir):
     cache_path = os.path.dirname(file).replace(real_source, cache_dir)
@@ -369,7 +371,7 @@ def find_subtitle_files(directory_path, file):
         if f.startswith(file_name) and f != file_name + file_ext
     ]
 
-    return subtitle_files
+    return subtitle_files or []
 
 # Function to convert size to readable format
 def convert_bytes_to_readable_size(size_bytes):
@@ -516,7 +518,7 @@ if users_toggle:
         media_to_cache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, user=user))
 
 # Edit file paths for the above fetched media
-media_to_cache=modify_file_paths(media_to_cache, plex_source, real_source, plex_library_folders, nas_library_folders)
+media_to_cache = modify_file_paths(media_to_cache, plex_source, real_source, plex_library_folders, nas_library_folders)
 
 # Fetches subtitles for the above fetched media
 media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to_skip))
@@ -529,8 +531,8 @@ if watched_move:
             media_to_array.extend(json.load(f))
     else:
         logging.info("Fetching watched media...")
-        media_to_array = get_watched_media(plex, valid_sections)
-        modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
+        media_to_array = get_watched_media(plex, valid_sections, watched_cache_file, user=None)
+        media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
         media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
         with watched_cache_file.open('w') as f:
             json.dump(media_to_array, f)
