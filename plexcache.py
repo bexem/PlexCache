@@ -68,10 +68,14 @@ watched_files = []
 media_to = []
 media_to_cache = []
 media_to_array = []
-plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+try:
+    # Connect to the Plex server
+    plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+except Exception as e:
+    logging.error(f"Error connecting to the Plex server: {e}")
+    exit(f"Error connecting to the Plex server: {e}")
+
 sessions = plex.sessions()
-
-
 
 # Check if debug mode is active
 if debug in ['y', 'yes']:
@@ -218,6 +222,8 @@ def get_watched_media(plex, valid_sections, user=None):
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
     print("Editing file paths...")
     logging.info("Editing file paths...")
+    # Filter files to only include those starting with plex_source
+    files = [file_path for file_path in files if file_path.startswith(plex_source)]
     for i, file_path in enumerate(files):
         file_path = file_path.replace(plex_source, real_source) # Replace the plex_source with the real_source
         if debug in ['y', 'yes']:
