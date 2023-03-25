@@ -78,7 +78,12 @@ media_to = []
 media_to_cache = []
 media_to_array = []
 move_commands = []
-plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+try:
+    # Connect to the Plex server
+    plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+except Exception as e:
+    logging.error(f"Error connecting to the Plex server: {e}")
+    exit(f"Error connecting to the Plex server: {e}")
 sessions = plex.sessions()
 
 # Check if debug mode is active
@@ -479,6 +484,9 @@ def execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_
             results = executor.map(move_file, move_commands)
             errors = [result for result in results if result != 0]
             print(f"Finished moving files with {len(errors)} errors.")
+
+print("Script now executing...")
+logging.info("Script now executing...")
 
 # Main user's onDeck media
 media_to_cache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes))
