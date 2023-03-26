@@ -277,8 +277,12 @@ def get_watched_media(plex, valid_sections, cache_file, user=None):
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
     print("Editing file paths...")
     logging.info("Editing file paths...")
+
     if files is None:
         return []
+
+    # Filter files to only include those starting with plex_source
+
     files = [file_path for file_path in files if file_path.startswith(plex_source)]
     for i, file_path in enumerate(files):
         file_path = file_path.replace(plex_source, real_source) # Replace the plex_source with the real_source
