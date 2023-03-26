@@ -18,23 +18,23 @@ max_log_files = 5
 if not os.path.exists(script_folder):
     os.makedirs(script_folder)
 
+current_time = datetime.now().strftime("%Y%m%d_%H%M")
+log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}{current_time}.log")
+logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Create or update the symbolic link to the latest log file
+latest_log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}latest.log")
+if os.path.exists(latest_log_file):
+    os.remove(latest_log_file)  # Remove the existing link if it exists
+
+os.symlink(log_file, latest_log_file)  # Create a new link to the latest log file
+
 # Check if the number of log files exceeds the limit and remove the oldest log file(s)
 existing_log_files = glob.glob(os.path.join(script_folder, log_file_pattern))
 if len(existing_log_files) >= max_log_files: 
     existing_log_files.sort(key=os.path.getctime)
     for i in range(len(existing_log_files) - max_log_files + 1):
         os.remove(existing_log_files[i])
-
-current_time = datetime.now().strftime("%Y%m%d_%H%M")
-log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}{current_time}.log")
-logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# Create or update the symbolic link to the latest log file
-latest_log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}_latest.log")
-if os.path.exists(latest_log_file):
-    os.remove(latest_log_file)  # Remove the existing link if it exists
-
-os.symlink(log_file, latest_log_file)  # Create a new link to the latest log file
 
 # Check if the settings file exists
 if os.path.exists(settings_filename):
@@ -72,19 +72,13 @@ except KeyError as e:
     logging.error(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
     exit(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
 
+# Initialising necessary arrays
 processed_files = []
 files_to_skip = []
 media_to = []
 media_to_cache = []
 media_to_array = []
 move_commands = []
-try:
-    # Connect to the Plex server
-    plex = PlexServer(PLEX_URL, PLEX_TOKEN)
-except Exception as e:
-    logging.error(f"Error connecting to the Plex server: {e}")
-    exit(f"Error connecting to the Plex server: {e}")
-sessions = plex.sessions()
 
 # Check if debug mode is active
 if debug:
@@ -98,8 +92,16 @@ if debug:
     logging.info(f"Nas folders: ({nas_library_folders}")
     logging.info(f"Plex folders: {plex_library_folders}")
     logging.info(f"Unraid: {unraid}")
-    
+
+# Connect to the Plex server
+try:
+    plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+except Exception as e:
+    logging.error(f"Error connecting to the Plex server: {e}")
+    exit(f"Error connecting to the Plex server: {e}")
+
 # Check if any active session
+sessions = plex.sessions()
 if sessions:
     if skip:
         logging.warning('There is an active session. Exiting...')
@@ -114,6 +116,22 @@ if sessions:
             logging.info(f"Active session detected, skipping: {media_title}")
             media_path = media_item.media[0].parts[0].file
             files_to_skip.append(media_path)
+
+# Function to print all files present in the currently in use array, only used if debug is on
+def log_files(files, calledby):
+    if debug:
+        if len(files) > 0:
+            logging.info(f"_____*{calledby}*_____")
+            for file in files:
+                logging.info(f"{file}")
+            logging.info("______________________")
+
+# Function to debug naming scheme, only used if debug is on
+def log_file_info(file, cache_path, cache_file_name):
+    if debug:
+        logging.info(f"File: {file}")
+        logging.info(f"Cache_path: {cache_path}")
+        logging.info(f"Cache_file_name: {cache_file_name}")
 
 # Function to fetch onDeck media files
 def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, user=None):
@@ -174,20 +192,6 @@ def get_next_episodes(episodes, current_season, current_episode_index, number_ep
         if len(next_episodes) == number_episodes:
             break
     return next_episodes
-
-def log_files(files, calledby):
-    if debug:
-        if len(files) > 0:
-            logging.info(f"_____*{calledby}*_____")
-            for file in files:
-                logging.info(f"{file}")
-            logging.info("______________________")
-
-def log_file_info(file, cache_path, cache_file_name):
-    if debug:
-        logging.info(f"File: {file}")
-        logging.info(f"Cache_path: {cache_path}")
-        logging.info(f"Cache_file_name: {cache_file_name}")
 
 # Function to fetch watchlist media files for the main user
 def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
@@ -500,9 +504,6 @@ def is_connected():
 print("Script now executing...")
 logging.info("Script now executing...")
 
-# Main user's onDeck media
-media_to_cache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes))
-
 # Main user's watchlist
 if watchlist_toggle:
     watchlist_media_set = load_watched_media_from_cache(watchlist_cache_file)
@@ -540,6 +541,8 @@ if watchlist_toggle:
         logging.info("Loading watchlist media from cache...")
         media_to_cache.extend(watchlist_media_set)
 
+# Main user's onDeck media
+media_to_cache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes))
 
 # Other users onDeck media
 if users_toggle:
