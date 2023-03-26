@@ -130,9 +130,9 @@ def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, 
             delta = datetime.now() - video.lastViewedAt
             if delta.days <= days_to_monitor:
                 if isinstance(video, Episode):
-                    process_episode(video, number_episodes, on_deck_files)
+                    process_episode_ondeck(video, number_episodes, on_deck_files)
                 elif isinstance(video, Movie):
-                    process_movie(video, on_deck_files)
+                    process_movie_ondeck(video, on_deck_files)
 
     log_files(on_deck_files, calledby="onDeck media")
     return on_deck_files
@@ -150,7 +150,7 @@ def get_plex_instance(plex, user):
         username = plex.myPlexAccount().title
         return username, PlexServer(PLEX_URL, PLEX_TOKEN)
 
-def process_episode(video, number_episodes, on_deck_files):
+def process_episode_ondeck(video, number_episodes, on_deck_files):
     for media in video.media:
         on_deck_files.extend(part.file for part in media.parts)
     show = video.grandparentTitle
@@ -162,7 +162,7 @@ def process_episode(video, number_episodes, on_deck_files):
         for media in episode.media:
             on_deck_files.extend(part.file for part in media.parts)
 
-def process_movie(video, on_deck_files):
+def process_movie_ondeck(video, on_deck_files):
     for media in video.media:
         on_deck_files.extend(part.file for part in media.parts)
 
@@ -195,83 +195,85 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
     print(f"Fetching {main_username}'s watchlist media...")
     logging.info(f"Fetching {main_username}'s watchlist media...")
     
-    user_files = []
     watchlist = get_watchlist(PLEX_TOKEN)
 
     for item in watchlist:
         file = search_plex(plex, item.title)
         if file and file.librarySectionID in valid_sections:
             if file.TYPE == 'show':
-                process_show(file, watchlist_episodes, user_files)
+                yield from process_show(file, watchlist_episodes)
             else:
-                process_movie(file, user_files)
+                yield from process_movie(file)
 
-    log_files(user_files, calledby="Watchlist media")
-    return user_files or []
+    def get_watchlist(token):
+        account = MyPlexAccount(token)
+        return account.watchlist(filter='released')
 
-def get_watchlist(token):
-    account = MyPlexAccount(token)
-    return account.watchlist(filter='released')
+    def search_plex(plex, title):
+        results = plex.search(title)
+        if len(results) > 0:
+            return results[0]
+        return None
 
-def search_plex(plex, title):
-    results = plex.search(title)
-    if len(results) > 0:
-        return results[0]
-    return None
+    def process_show(file, watchlist_episodes):
+        episodes = file.episodes()
+        count = 0
 
-def process_show(file, watchlist_episodes, user_files):
-    episodes = file.episodes()
-    count = 0
+        if count <= watchlist_episodes:
+            for episode in episodes[:watchlist_episodes]:
+                if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
+                    count += 1
+                    if not episode.isPlayed:
+                        yield episode.media[0].parts[0].file
 
-    if count <= watchlist_episodes:
-        for episode in episodes[:watchlist_episodes]:
-            if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
-                count += 1
-                if not episode.isPlayed:
-                    user_files.append((episode.media[0].parts[0].file))
-
-def process_movie(file, user_files):
-    user_files.append((file.media[0].parts[0].file))
+    def process_movie(file):
+        yield file.media[0].parts[0].file
 
 # Function to fetch watched media files
-#def get_watched_media(plex, valid_sections, cache_file, user=None):
-#    def fetch_user_watched_media(plex_instance, username, cache_file):
-#        print(f"Fetching {username}'s watched media...")
-#        logging.info(f"Fetching {username}'s watched media...")
+def get_watched_media(plex, valid_sections, user=None):
+    def fetch_user_watched_media(plex_instance, username):
+        print(f"Fetching {username}'s watched media...")
+        logging.info(f"Fetching {username}'s watched media...")
 
-#        try:
-#            for section_id in valid_sections:
-#                section = plex_instance.library.sectionByID(section_id)
-#                for video in section.search(unwatched=False):
-#                    process_video(video, cache_file)
-#        except Exception:
-#            print(f"Error: Failed to Fetch {username}'s watched media")
-#            logging.info(f"Error: Failed to Fetch {username}'s watched media")
+        try:
+            for section_id in valid_sections:
+                section = plex_instance.library.sectionByID(section_id)
+                for video in section.search(unwatched=False):
+                    yield from process_video(video)
+        except Exception:
+            print(f"Error: Failed to Fetch {username}'s watched media")
+            logging.info(f"Error: Failed to Fetch {username}'s watched media")
 
-#    def process_video(video, cache_file):
-#        if video.TYPE == 'show':
-#            for episode in video.episodes():
-#                process_episode(episode, cache_file)
-#        else:
-#            file_path = video.media[0].parts[0].file
-#            cache_file.write(f"{file_path}\n")
+    def process_video(video):
+        if video.TYPE == 'show':
+            for episode in video.episodes():
+                yield from process_episode(episode)
+        else:
+            file_path = video.media[0].parts[0].file
+            yield file_path
 
-#    def process_episode(episode, cache_file):
-#        for media in episode.media:
-#            for part in media.parts:
-#                if episode.isPlayed:
-#                    file_path = part.file
-#                    cache_file.write(f"{file_path}\n")
+    def process_episode(episode):
+        for media in episode.media:
+            for part in media.parts:
+                if episode.isPlayed:
+                    file_path = part.file
+                    yield file_path
 
-#    with open(cache_file, 'w') as f:
-#        main_username = plex.myPlexAccount().title
-#        fetch_user_watched_media(plex, main_username, f)
+    main_username = plex.myPlexAccount().title
+    yield from fetch_user_watched_media(plex, main_username)
 
-#        for user in plex.myPlexAccount().users():
-#            username = user.title
-#            user_token = user.get_token(plex.machineIdentifier)
-#            user_plex = PlexServer(PLEX_URL, user_token)
-#            fetch_user_watched_media(user_plex, username, f)
+    if users_toggle:
+        for user in plex.myPlexAccount().users():
+            username = user.title
+            user_token = user.get_token(plex.machineIdentifier)
+            user_plex = PlexServer(PLEX_URL, user_token)
+            yield from fetch_user_watched_media(user_plex, username)
+
+def load_watched_media_from_cache(cache_file):
+    if cache_file.exists():
+        with cache_file.open('r') as f:
+            return set(json.load(f))
+    return set()
 
 # Function to change the paths to the correct ones
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
@@ -495,17 +497,30 @@ media_to_cache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor,
 
 # Main user's watchlist
 if watchlist_toggle:
-    if watchlist_cache_file.exists() and (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) <= timedelta(hours=watchlist_cache_expiry)):
-        logging.info("Loading watchlist media from cache...")
-        with watchlist_cache_file.open('r') as f:
-            media_to_cache.extend(json.load(f))
-    else:
+    watchlist_media_set = load_watched_media_from_cache(watchlist_cache_file)
+    current_watchlist_set = set()
+
+    if (not watchlist_cache_file.exists()) or (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) > timedelta(hours=watchlist_cache_expiry)):
         logging.info("Fetching watchlist media...")
-        watchlist_media = fetch_watchlist_media(plex, valid_sections, watchlist_episodes)
-        media_to_cache.extend(watchlist_media)
+        fetched_watchlist = fetch_watchlist_media(plex, valid_sections, watchlist_episodes)
+
+        for file_path in fetched_watchlist:
+            current_watchlist_set.add(file_path)
+            if file_path not in watchlist_media_set:
+                media_to_cache.append(file_path)
+
+        # Remove media that no longer exists in watchlist
+        watchlist_media_set.intersection_update(current_watchlist_set)
+
+        # Add new media to the watchlist media set
+        watchlist_media_set.update(media_to_cache)
+
         with watchlist_cache_file.open('w') as f:
-            json.dump(watchlist_media, f)
-            del watchlist_media
+            json.dump(list(watchlist_media_set), f)
+
+    else:
+        logging.info("Loading watchlist media from cache...")
+        media_to_cache.extend(watchlist_media_set)
 
 # Other users onDeck media
 if users_toggle:
@@ -524,24 +539,42 @@ media_to_cache = modify_file_paths(media_to_cache, plex_source, real_source, ple
 media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to_skip))
 
 # Watched media
-#if watched_move:
-    #if watched_cache_file.exists() and (datetime.now() - datetime.fromtimestamp(watched_cache_file.stat().st_mtime) <= timedelta(hours=watched_cache_expiry)):
-    #    logging.info("Loading watched media from cache...")
-    #    with watched_cache_file.open('r') as f:
-    #        media_to_array.extend(json.load(f))
-    #else:
-    #    logging.info("Fetching watched media...")
-    #    media_to_array = get_watched_media(plex, valid_sections, watched_cache_file, user=None)
-    #    media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
-    #    media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
-    #    with watched_cache_file.open('w') as f:
-    #        json.dump(media_to_array, f)
+if watched_move:
+    watched_media_set = load_watched_media_from_cache(watched_cache_file)
+    current_media_set = set()
 
-    #try:
-    #    check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug, files_to_skip)
-    #except Exception as e:
-    #    logging.error(f"Error checking free space and moving media files: {str(e)}")
-    #    exit(f"Error: {str(e)}")
+    if (not watched_cache_file.exists()) or (datetime.now() - datetime.fromtimestamp(watched_cache_file.stat().st_mtime) > timedelta(hours=watched_cache_expiry)):
+        print("Fetching watched media...")
+        logging.info("Fetching watched media...")
+        fetched_media = get_watched_media(plex, valid_sections, user=None)
+
+        for file_path in fetched_media:
+            current_media_set.add(file_path)
+            if file_path not in watched_media_set:
+                media_to_array.append(file_path)
+
+        # Remove media that no longer exists in Plex
+        watched_media_set.intersection_update(current_media_set)
+
+        # Add new media to the watched media set
+        watched_media_set.update(media_to_array)
+
+        media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
+        media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
+
+        with watched_cache_file.open('w') as f:
+            json.dump(list(watched_media_set), f)
+
+    else:
+        print("Loading watched media from cache...")
+        logging.info("Loading watched media from cache...")
+        media_to_array.extend(watched_media_set)
+
+    try:
+        check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug, files_to_skip)
+    except Exception as e:
+        logging.error(f"Error checking free space and moving media files: {str(e)}")
+        exit(f"Error: {str(e)}")
 
 # Moving the files to the cache drive
 try:
