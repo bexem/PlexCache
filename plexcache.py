@@ -234,44 +234,44 @@ def process_movie(file, user_files):
     user_files.append((file.media[0].parts[0].file))
 
 # Function to fetch watched media files
-def get_watched_media(plex, valid_sections, cache_file, user=None):
-    def fetch_user_watched_media(plex_instance, username, cache_file):
-        print(f"Fetching {username}'s watched media...")
-        logging.info(f"Fetching {username}'s watched media...")
+#def get_watched_media(plex, valid_sections, cache_file, user=None):
+#    def fetch_user_watched_media(plex_instance, username, cache_file):
+#        print(f"Fetching {username}'s watched media...")
+#        logging.info(f"Fetching {username}'s watched media...")
 
-        try:
-            for section_id in valid_sections:
-                section = plex_instance.library.sectionByID(section_id)
-                for video in section.search(unwatched=False):
-                    process_video(video, cache_file)
-        except Exception:
-            print(f"Error: Failed to Fetch {username}'s watched media")
-            logging.info(f"Error: Failed to Fetch {username}'s watched media")
+#        try:
+#            for section_id in valid_sections:
+#                section = plex_instance.library.sectionByID(section_id)
+#                for video in section.search(unwatched=False):
+#                    process_video(video, cache_file)
+#        except Exception:
+#            print(f"Error: Failed to Fetch {username}'s watched media")
+#            logging.info(f"Error: Failed to Fetch {username}'s watched media")
 
-    def process_video(video, cache_file):
-        if video.TYPE == 'show':
-            for episode in video.episodes():
-                process_episode(episode, cache_file)
-        else:
-            file_path = video.media[0].parts[0].file
-            cache_file.write(f"{file_path}\n")
+#    def process_video(video, cache_file):
+#        if video.TYPE == 'show':
+#            for episode in video.episodes():
+#                process_episode(episode, cache_file)
+#        else:
+#            file_path = video.media[0].parts[0].file
+#            cache_file.write(f"{file_path}\n")
 
-    def process_episode(episode, cache_file):
-        for media in episode.media:
-            for part in media.parts:
-                if episode.isPlayed:
-                    file_path = part.file
-                    cache_file.write(f"{file_path}\n")
+#    def process_episode(episode, cache_file):
+#        for media in episode.media:
+#            for part in media.parts:
+#                if episode.isPlayed:
+#                    file_path = part.file
+#                    cache_file.write(f"{file_path}\n")
 
-    with open(cache_file, 'w') as f:
-        main_username = plex.myPlexAccount().title
-        fetch_user_watched_media(plex, main_username, f)
+#    with open(cache_file, 'w') as f:
+#        main_username = plex.myPlexAccount().title
+#        fetch_user_watched_media(plex, main_username, f)
 
-        for user in plex.myPlexAccount().users():
-            username = user.title
-            user_token = user.get_token(plex.machineIdentifier)
-            user_plex = PlexServer(PLEX_URL, user_token)
-            fetch_user_watched_media(user_plex, username, f)
+#        for user in plex.myPlexAccount().users():
+#            username = user.title
+#            user_token = user.get_token(plex.machineIdentifier)
+#            user_plex = PlexServer(PLEX_URL, user_token)
+#            fetch_user_watched_media(user_plex, username, f)
 
 # Function to change the paths to the correct ones
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
@@ -524,24 +524,24 @@ media_to_cache = modify_file_paths(media_to_cache, plex_source, real_source, ple
 media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to_skip))
 
 # Watched media
-if watched_move:
-    if watched_cache_file.exists() and (datetime.now() - datetime.fromtimestamp(watched_cache_file.stat().st_mtime) <= timedelta(hours=watched_cache_expiry)):
-        logging.info("Loading watched media from cache...")
-        with watched_cache_file.open('r') as f:
-            media_to_array.extend(json.load(f))
-    else:
-        logging.info("Fetching watched media...")
-        media_to_array = get_watched_media(plex, valid_sections, watched_cache_file, user=None)
-        media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
-        media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
-        with watched_cache_file.open('w') as f:
-            json.dump(media_to_array, f)
+#if watched_move:
+    #if watched_cache_file.exists() and (datetime.now() - datetime.fromtimestamp(watched_cache_file.stat().st_mtime) <= timedelta(hours=watched_cache_expiry)):
+    #    logging.info("Loading watched media from cache...")
+    #    with watched_cache_file.open('r') as f:
+    #        media_to_array.extend(json.load(f))
+    #else:
+    #    logging.info("Fetching watched media...")
+    #    media_to_array = get_watched_media(plex, valid_sections, watched_cache_file, user=None)
+    #    media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
+    #    media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
+    #    with watched_cache_file.open('w') as f:
+    #        json.dump(media_to_array, f)
 
-    try:
-        check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug, files_to_skip)
-    except Exception as e:
-        logging.error(f"Error checking free space and moving media files: {str(e)}")
-        exit(f"Error: {str(e)}")
+    #try:
+    #    check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug, files_to_skip)
+    #except Exception as e:
+    #    logging.error(f"Error checking free space and moving media files: {str(e)}")
+    #    exit(f"Error: {str(e)}")
 
 # Moving the files to the cache drive
 try:
