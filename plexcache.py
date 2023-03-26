@@ -1,4 +1,4 @@
-import os, json, logging, glob, subprocess
+import os, json, logging, glob, subprocess, socket
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -194,16 +194,6 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
     main_username = plex.myPlexAccount().title
     print(f"Fetching {main_username}'s watchlist media...")
     logging.info(f"Fetching {main_username}'s watchlist media...")
-    
-    watchlist = get_watchlist(PLEX_TOKEN)
-
-    for item in watchlist:
-        file = search_plex(plex, item.title)
-        if file and file.librarySectionID in valid_sections:
-            if file.TYPE == 'show':
-                yield from process_show(file, watchlist_episodes)
-            else:
-                yield from process_movie(file)
 
     def get_watchlist(token):
         account = MyPlexAccount(token)
@@ -214,7 +204,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
         if len(results) > 0:
             return results[0]
         return None
-
+    
     def process_show(file, watchlist_episodes):
         episodes = file.episodes()
         count = 0
@@ -228,6 +218,16 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes):
 
     def process_movie(file):
         yield file.media[0].parts[0].file
+
+    watchlist = get_watchlist(PLEX_TOKEN)
+
+    for item in watchlist:
+        file = search_plex(plex, item.title)
+        if file and file.librarySectionID in valid_sections:
+            if file.TYPE == 'show':
+                yield from process_show(file, watchlist_episodes)
+            else:
+                yield from process_movie(file)
 
 # Function to fetch watched media files
 def get_watched_media(plex, valid_sections, user=None):
@@ -489,6 +489,14 @@ def execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_
             errors = [result for result in results if result != 0]
             print(f"Finished moving files with {len(errors)} errors.")
 
+def is_connected():
+    try:
+        # attempt to resolve google's DNS server
+        socket.gethostbyname("www.google.com")
+        return True
+    except socket.error:
+        return False
+
 print("Script now executing...")
 logging.info("Script now executing...")
 
@@ -499,28 +507,39 @@ media_to_cache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor,
 if watchlist_toggle:
     watchlist_media_set = load_watched_media_from_cache(watchlist_cache_file)
     current_watchlist_set = set()
+    if is_connected():
+        # To fetch the watchlist media internet is required due to a plexapi limitation
+        if (not watchlist_cache_file.exists()) or (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) > timedelta(hours=watchlist_cache_expiry)):
+            print("Fetching watchlist media...")
+            logging.info("Fetching watchlist media...")
+            fetched_watchlist = fetch_watchlist_media(plex, valid_sections, watchlist_episodes)
 
-    if (not watchlist_cache_file.exists()) or (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) > timedelta(hours=watchlist_cache_expiry)):
-        logging.info("Fetching watchlist media...")
-        fetched_watchlist = fetch_watchlist_media(plex, valid_sections, watchlist_episodes)
+            for file_path in fetched_watchlist:
+                current_watchlist_set.add(file_path)
+                if file_path not in watchlist_media_set:
+                    media_to_cache.append(file_path)
 
-        for file_path in fetched_watchlist:
-            current_watchlist_set.add(file_path)
-            if file_path not in watchlist_media_set:
-                media_to_cache.append(file_path)
+            # Remove media that no longer exists in watchlist
+            watchlist_media_set.intersection_update(current_watchlist_set)
 
-        # Remove media that no longer exists in watchlist
-        watchlist_media_set.intersection_update(current_watchlist_set)
+            # Add new media to the watchlist media set
+            watchlist_media_set.update(media_to_cache)
 
-        # Add new media to the watchlist media set
-        watchlist_media_set.update(media_to_cache)
+            with watchlist_cache_file.open('w') as f:
+                json.dump(list(watchlist_media_set), f)
 
-        with watchlist_cache_file.open('w') as f:
-            json.dump(list(watchlist_media_set), f)
-
+        else:
+            print("Loading watchlist media from cache...")
+            logging.info("Loading watchlist media from cache...")
+            media_to_cache.extend(watchlist_media_set)
     else:
+        # handle no internet connection scenario
+        print("Unable to connect to the internet, skipping fetching new watchlist media due to plexapi limitation.")
+        logging.warning("Unable to connect to the internet, skipping fetching new watchlist media due to plexapi limitation.")
+        print("Loading watchlist media from cache...")
         logging.info("Loading watchlist media from cache...")
         media_to_cache.extend(watchlist_media_set)
+
 
 # Other users onDeck media
 if users_toggle:

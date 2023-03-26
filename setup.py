@@ -21,7 +21,6 @@ def is_valid_plex_url(url):
 # Ask user for input for missing settings
 def setup():
     while 'PLEX_URL' not in settings_data:
-        print("It is advised to use internet accessible plex domain if planning to fetch other users media and watchlist.")
         url = input('\nEnter your plex server address (Example: http://localhost:32400 or https://plex.mydomain.ext): ')
         try:
             if is_valid_plex_url(url):
