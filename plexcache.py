@@ -20,7 +20,7 @@ if not os.path.exists(script_folder):
 
 current_time = datetime.now().strftime("%Y%m%d_%H%M")
 log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}{current_time}.log")
-logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename=log_file, filemode='w', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Create or update the symbolic link to the latest log file
 latest_log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}latest.log")
