@@ -193,6 +193,10 @@ def get_next_episodes(episodes, current_season, current_episode_index, number_ep
             break
     return next_episodes
 
+def search_plex(plex, title):
+    results = plex.search(title)
+    return results[0] if len(results) > 0 else None
+
 # Function to fetch watchlist media files for the main user
 def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle=False, skip_users=None):
     if skip_users is None:
@@ -204,58 +208,6 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
             account = account.switchHomeUser(user.title)
         return account.watchlist(filter='released')
 
-    def search_plex(plex, title):
-        results = plex.search(title)
-        return results[0] if len(results) > 0 else None
-
-    def process_show(file, watchlist_episodes):
-        episodes = file.episodes()
-        count = 0
-
-        if count <= watchlist_episodes:
-            for episode in episodes[:watchlist_episodes]:
-                if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
-                    count += 1
-                    if not episode.isPlayed:
-                        yield episode.media[0].parts[0].file
-
-    def process_movie(file):
-        yield file.media[0].parts[0].file
-
-    users_to_fetch = [None]  # Start with main user (None)
-    if users_toggle:
-        users_to_fetch += plex.myPlexAccount().users()
-
-    for user in users_to_fetch:
-        if user is not None and user.get_token(plex.machineIdentifier) in skip_users:
-            print(f"Skipping {user.title}'s watchlist media...")
-            logging.info(f"Skipping {user.title}'s watchlist media...")
-            continue
-
-        current_username = plex.myPlexAccount().title if user is None else user.title
-        print(f"Fetching {current_username}'s watchlist media...")
-        logging.info(f"Fetching {current_username}'s watchlist media...")
-
-        watchlist = get_watchlist(PLEX_TOKEN, user)
-
-        for item in watchlist:
-            file = search_plex(plex, item.title)
-            if file and file.librarySectionID in valid_sections:
-                if file.TYPE == 'show':
-                    yield from process_show(file, watchlist_episodes)
-                else:
-                    yield from process_movie(file)
-
-    def get_watchlist(token, user=None):
-        account = MyPlexAccount(token)
-        if user:
-            account = account.switchHomeUser(user.title)
-        return account.watchlist(filter='released')
-
-    def search_plex(plex, title):
-        results = plex.search(title)
-        return results[0] if len(results) > 0 else None
-
     def process_show(file, watchlist_episodes):
         episodes = file.episodes()
         count = 0
@@ -288,7 +240,6 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
                     yield from process_show(file, watchlist_episodes)
                 else:
                     yield from process_movie(file)
-
 
 # Function to fetch watched media files
 def get_watched_media(plex, valid_sections, user=None):
