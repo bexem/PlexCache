@@ -163,7 +163,7 @@ def get_plex_instance(plex, user):
         except Exception:
             print(f"Error: Failed to Fetch {username} onDeck media")
             logging.error(f"Error: Failed to Fetch {username} onDeck media")
-            return None
+            return None, None
     else:
         username = plex.myPlexAccount().title
         return username, PlexServer(PLEX_URL, PLEX_TOKEN)
