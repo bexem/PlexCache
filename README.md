@@ -1,21 +1,26 @@
 **TLDR:** Move the media currently On Deck/Watchlist on Plex from the array to the cache. 
 
-This Python script reduces energy consumption by minimizing the need to spin up the array/disk(s) when watching recurrent media like TV series. It achieves this by moving the media from the OnDeck library of the main user, all other users, and the main user's watchlist. For TV shows/anime, it also fetches the next specified number of episodes.
+This Python script reduces energy consumption by minimizing the need to spin up the array/disk(s) when watching recurrent media like TV series. It achieves this by moving the media from the OnDeck and watchlist media for the main user and other users. For TV shows/anime, it also fetches the next specified number of episodes.
 
 The project contains two scripts: a setup script and a main script. The setup script prompts the user to specify the folders where the media is stored and fetches the mapped Plex media paths and will create the settings file, which can also be created/edited manually.
 The script was initially developed for Unraid but is compatible with other systems.
 
 # The script can:
-- Fetch a specified number of episodes from the "onDeck" for the main user and other specified users, as well as the main user's watchlist.
-- Skip fetching onDeck media for specified users.
-- Search only the specified libraries.
-- Check for free space before moving any file.
-- Move watched media present on the cache drive back to the array.
-- Move relative subtitles along with the media moved to or from the cache.
-- Filter media older than a specified number of days.
-- Run in debug mode for testing.
-- Exit the script if any active session or skip the currently playing media.
-- Find your missing unicorn.
+- Fetch a specified number of episodes from the "onDeck" for the main user and other users;
+- Skip fetching onDeck media for specified users;
+- Fetch a specified number of episodes from the "watchlist" for the main user and other users;
+- Skip fetching watchlist media for specified users;
+- Search only the specified libraries;
+- Check for free space before moving any file;
+- Move watched media present on the cache drive back to the array;
+- Move relative subtitles along with the media moved to or from the cache;
+- Filter media older than a specified number of days;
+- Run in debug mode for testing;
+- Use of a log file for easy debugging;
+- Use caching system to avoid wastful memory usage and cpu cycles;
+- Use of multitasking to optimize file transfer time;
+- Exit the script if any active session or skip the currently playing media;
+- Find your missing unicorn;
 
 # Disclaimer:
 
@@ -24,6 +29,10 @@ Before you dive in, here's a reality check: this script comes without any warran
 By using this script, you accept that you're responsible for any consequences that may result. The author will not be held liable for data loss, corruption, or any other problems you may encounter. So, it's on you to make sure you have backups and test this script thoroughly before you unleash its awesome power.
 
 Now, go ahead and take script for a spin.
+
+# Notes:
+
+Not required but if you start having issues fetching other users media, you can try adding the container's (or device) IP address to the plex server settings "List of IP addresses and networks that are allowed without auth" under the network page. 
 
 # How to run the setup script:
 
