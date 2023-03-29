@@ -32,7 +32,7 @@ Now, go ahead and take script for a spin.
 
 # Notes:
 
-Not required but if you start having issues fetching other users media, you can try adding the container's (or device) IP address to the plex server settings "List of IP addresses and networks that are allowed without auth" under the network page. 
+Not required but if you start having issues fetching other users media, you can try adding the machine/container's IP address running the script to the plex server settings "List of IP addresses and networks that are allowed without auth", under the network page. 
 
 # How to run the setup script:
 
