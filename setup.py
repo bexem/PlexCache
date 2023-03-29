@@ -78,7 +78,7 @@ def setup():
 
     while True:
         if 'users_toggle' not in settings_data:
-            fetch_all_users = input('\nDo you want to fetch onDeck media from all other users? (default: yes) ') or 'yes'
+            fetch_all_users = input('\nDo you want to fetch onDeck/watchlist media from all other users? (default: yes) ') or 'yes'
             skip_users = []
             if fetch_all_users.lower() in ['y', 'yes']:
                 settings_data['users_toggle'] = True
