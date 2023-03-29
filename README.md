@@ -30,6 +30,10 @@ By using this script, you accept that you're responsible for any consequences th
 
 Now, go ahead and take script for a spin.
 
+# Notes:
+
+Not required but if you start having issues fetching other users media, you can try adding the container's (or device) IP address to the plex server settings "List of IP addresses and networks that are allowed without auth" under the network page. 
+
 # How to run the setup script:
 
 The instructions below are applicable to the main operating systems:
