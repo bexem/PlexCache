@@ -466,11 +466,12 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
 
 def get_paths(file_to_move, real_source, cache_dir, unraid):
     user_path = os.path.dirname(file_to_move)
-    cache_path = user_path.replace(real_source, cache_dir)
+    relative_path = os.path.relpath(user_path, real_source)
+    cache_path = os.path.join(cache_dir, relative_path)
     cache_file_name = os.path.join(cache_path, os.path.basename(file_to_move))
 
     if unraid:
-        user_path = user_path.replace("/mnt/user/", "/mnt/user0/")  # Thanks to dada051 suggestion
+        user_path = user_path.replace("/mnt/user/", "/mnt/user0/")
     user_file_name = os.path.join(user_path, os.path.basename(file_to_move))
 
     return user_path, cache_path, cache_file_name, user_file_name
