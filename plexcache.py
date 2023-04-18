@@ -14,9 +14,15 @@ watched_cache_file = Path(os.path.join(script_folder, "watched_cache.json"))
 log_file_pattern = "plexcache_script_*.log"
 max_log_files = 5
 
-# Check if the script_folder exists
+# Check if the script_folder exist, if not check for writing permissions, if okay, it will then create the folder
 if not os.path.exists(script_folder):
-    os.makedirs(script_folder)
+    if not os.access(script_folder, os.W_OK):
+        exit("Script folder not writable, please fix the variable accordingly.")
+    else:
+        os.makedirs(script_folder)
+# As the script_folder exist, check for writing permissions
+if not os.access(script_folder, os.W_OK):
+    exit("Script folder not writable, please fix the variable accordingly.")
 
 current_time = datetime.now().strftime("%Y%m%d_%H%M")
 log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}{current_time}.log")
@@ -38,6 +44,7 @@ if len(existing_log_files) >= max_log_files:
 
 # Check if the settings file exists
 if os.path.exists(settings_filename):
+    # Loading the settings file
     with open(settings_filename, 'r') as f:
         settings_data = json.load(f)
 else:
@@ -80,19 +87,6 @@ media_to_cache = []
 media_to_array = []
 move_commands = []
 
-# Check if debug mode is active
-if debug:
-    print("Debug mode is active, no file will be moved. Extra info available in the log file.")
-    logging.info("Debug mode is active, no file will be moved.")
-    # Extra debugging 
-    logging.info("______________")
-    logging.info(f"Real source: {real_source}")
-    logging.info(f"Cache dir: {cache_dir}")
-    logging.info(f"Plex source: {plex_source}")
-    logging.info(f"Nas folders: ({nas_library_folders}")
-    logging.info(f"Plex folders: {plex_library_folders}")
-    logging.info(f"Unraid: {unraid}")
-
 # Connect to the Plex server
 try:
     plex = PlexServer(PLEX_URL, PLEX_TOKEN)
@@ -116,6 +110,19 @@ if sessions:
             logging.info(f"Active session detected, skipping: {media_title}")
             media_path = media_item.media[0].parts[0].file
             files_to_skip.append(media_path)
+
+# Check if debug mode is active
+if debug:
+    print("Debug mode is active, no file will be moved. Extra info available in the log file.")
+    logging.info("Debug mode is active, no file will be moved.")
+    # Extra debugging 
+    logging.info("______________")
+    logging.info(f"Real source: {real_source}")
+    logging.info(f"Cache dir: {cache_dir}")
+    logging.info(f"Plex source: {plex_source}")
+    logging.info(f"Nas folders: ({nas_library_folders}")
+    logging.info(f"Plex folders: {plex_library_folders}")
+    logging.info(f"Unraid: {unraid}")
 
 # Function to print all files present in the currently in use array, only used if debug is on
 def log_files(files, calledby):
@@ -155,6 +162,7 @@ def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, 
     log_files(on_deck_files, calledby="onDeck media")
     return on_deck_files
 
+# Function to fetch the Plex instance
 def get_plex_instance(plex, user):
     if user:
         username = user.title
@@ -168,6 +176,7 @@ def get_plex_instance(plex, user):
         username = plex.myPlexAccount().title
         return username, PlexServer(PLEX_URL, PLEX_TOKEN)
 
+# Function to process the onDeck media files
 def process_episode_ondeck(video, number_episodes, on_deck_files):
     for media in video.media:
         on_deck_files.extend(part.file for part in media.parts)
@@ -180,10 +189,12 @@ def process_episode_ondeck(video, number_episodes, on_deck_files):
         for media in episode.media:
             on_deck_files.extend(part.file for part in media.parts)
 
+# Function to process the onDeck movies files
 def process_movie_ondeck(video, on_deck_files):
     for media in video.media:
         on_deck_files.extend(part.file for part in media.parts)
 
+# Function to get the next episodes
 def get_next_episodes(episodes, current_season, current_episode_index, number_episodes):
     next_episodes = []
     for episode in episodes:
@@ -193,6 +204,7 @@ def get_next_episodes(episodes, current_season, current_episode_index, number_ep
             break
     return next_episodes
 
+# Function to search for a file in the Plex server
 def search_plex(plex, title):
     results = plex.search(title)
     return results[0] if len(results) > 0 else None
@@ -232,7 +244,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
         logging.info(f"Fetching {current_username}'s watchlist media...")
 
         watchlist = get_watchlist(PLEX_TOKEN, user)
-
+        
         for item in watchlist:
             file = search_plex(plex, item.title)
             if file and file.librarySectionID in valid_sections:
@@ -281,6 +293,7 @@ def get_watched_media(plex, valid_sections, user=None):
             user_plex = PlexServer(PLEX_URL, user_token)
             yield from fetch_user_watched_media(user_plex, username)
 
+# Function to load watched media from cache
 def load_watched_media_from_cache(cache_file):
     if cache_file.exists():
         with cache_file.open('r') as f:
@@ -295,7 +308,7 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
         return []
     files = [file_path for file_path in files if file_path.startswith(plex_source)]
     for i, file_path in enumerate(files):
-        file_path = file_path.replace(plex_source, real_source) # Replace the plex_source with the real_source
+        file_path = file_path.replace(plex_source, real_source, 1) # Replace the plex_source with the real_source, thanks to /u/planesrfun
         for j, folder in enumerate(plex_library_folders): # Determine which library folder is in the file path
             if folder in file_path:
                 file_path = file_path.replace(folder, nas_library_folders[j]) # Replace the plex library folder with the corresponding NAS library folder             
@@ -304,6 +317,7 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
     log_files(files, calledby="Modified path")
     return files or []
 
+# Function to filter the files, based on the destination
 def filter_files(files, destination, real_source, cache_dir, fileToCache):
     print(f"Filtering media files for {destination}...")
     logging.info(f"Filtering media files {destination}...")
@@ -331,7 +345,7 @@ def filter_files(files, destination, real_source, cache_dir, fileToCache):
     return media_to or []
 
 def get_cache_paths(file, real_source, cache_dir):
-    cache_path = os.path.dirname(file).replace(real_source, cache_dir)
+    cache_path = os.path.dirname(file).replace(real_source, cache_dir, 1)
     cache_file_name = os.path.join(cache_path, os.path.basename(file))
     return cache_path, cache_file_name
 
@@ -435,6 +449,15 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
         print(f"Nothing to move to {destination}")
         logging.info(f"Nothing to move to {destination}")
 
+# Function to check if given path exists, is a directory and the script has writing permissions
+def check_path_exists(path):
+    if not os.path.exists(path):
+        logging.error(f"Path {path} does not exist.")
+    if not os.path.isdir(path):
+        logging.error(f"Path {path} is not a directory.")
+    if not os.access(path, os.W_OK):
+        logging.error(f"Path {path} is not writable.")
+    
 def move_file(move_cmd):
     logging.info(move_cmd)
     result = subprocess.run(move_cmd, shell=True, stderr=subprocess.PIPE)
@@ -454,6 +477,7 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
     for file_to_move in files:
         if file_to_move in files_to_skip or file_to_move in processed_files:
             continue
+
         processed_files.add(file_to_move)
 
         user_path, cache_path, cache_file_name, user_file_name = get_paths(file_to_move, real_source, cache_dir, unraid)
@@ -464,6 +488,7 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
 
     execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_concurrent_moves_cache, destination)
 
+# Function to get the paths of the user and cache directories
 def get_paths(file_to_move, real_source, cache_dir, unraid):
     user_path = os.path.dirname(file_to_move)
     relative_path = os.path.relpath(user_path, real_source)
@@ -471,11 +496,12 @@ def get_paths(file_to_move, real_source, cache_dir, unraid):
     cache_file_name = os.path.join(cache_path, os.path.basename(file_to_move))
 
     if unraid:
-        user_path = user_path.replace("/mnt/user/", "/mnt/user0/")
+        user_path = user_path.replace("/mnt/user/", "/mnt/user0/", 1)
     user_file_name = os.path.join(user_path, os.path.basename(file_to_move))
 
     return user_path, cache_path, cache_file_name, user_file_name
 
+# Function to get the move command for the given file
 def get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path):
     move = None
     if destination == 'array':
@@ -490,6 +516,7 @@ def get_move_command(destination, cache_file_name, user_path, user_file_name, ca
             move = f"mv -v \"{user_file_name}\" \"{cache_path}\""
     return move
 
+# Function to execute the given move commands
 def execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_concurrent_moves_cache, destination):
     if debug:
         for move_cmd in move_commands:
@@ -502,16 +529,21 @@ def execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_
             errors = [result for result in results if result != 0]
             print(f"Finished moving files with {len(errors)} errors.")
 
+# Function to check if internet is available
 def is_connected():
     try:
-        # attempt to resolve google's DNS server
+        # Attempt to connect to google's DNS server
         socket.gethostbyname("www.google.com")
         return True
     except socket.error:
         return False
 
-print("Script now executing...")
-logging.info("Script now executing...")
+print("Initializing script...")
+logging.info("Initializing script...")
+print("Checking paths and permissions...")
+logging.info("Checking paths and permissions...")
+for path in [real_source, cache_dir]:
+    check_path_exists(path)
 
 # Main user's watchlist
 if watchlist_toggle:
