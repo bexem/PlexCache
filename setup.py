@@ -1,9 +1,9 @@
-import json, os, requests
+import json, os, requests, platform
 from plexapi.server import PlexServer
 from plexapi.exceptions import BadRequest
 
 # The script will create/edit the file in the same folder the script is located, but you can change that
-script_folder="./"
+script_folder="."
 settings_filename = os.path.join(script_folder, "settings.json")
         
 # Function to check for a valid plex url
@@ -42,7 +42,7 @@ def setup():
             plex_library_folders = []
             while not valid_sections:
                 for library in libraries:
-                    print(f"Your plex library name: {library.title}")
+                    print(f"\nYour plex library name: {library.title}")
                     include = input("Do you want to include this library? [Y/n] (default: yes) ") or 'yes'
                     if include.lower() in ['n', 'no']:
                         continue
@@ -51,7 +51,7 @@ def setup():
                         if 'plex_source' not in settings_data:
                             location_index = 0 
                             location = library.locations[location_index]
-                            root_folder = (os.path.abspath(os.path.join(location, os.pardir)) + "/")
+                            root_folder = (os.path.dirname(location) + "/")
                             print(f"\nPlex source path autoselected and set to: {root_folder}")
                             settings_data['plex_source'] = root_folder
                         for location in library.locations:
@@ -320,6 +320,7 @@ while True:
             # If the file exists but is not a valid JSON file, initialize an empty JSON object
             settings_data = {}
             print("Setting file initialized successfully!\n")
+            setup()
             break
     else:
         print("Settings file doesn't exist, please check the path:\n")
@@ -330,6 +331,7 @@ while True:
                 json.dump({}, f)
                 settings_data = {}
                 print("Setting file created successfully!\n")
+                setup()
             break 
         elif creation.lower() in ['n', 'no']:
             exit("Exiting as requested, setting file not created.")
