@@ -36,6 +36,8 @@ def get_os_info():
 
     return os_type, user_os_choice
 
+os_type, user_os_choice = get_os_info()
+
 # Ask user for input for missing settings
 def setup():
     while 'PLEX_URL' not in settings_data:
@@ -93,8 +95,6 @@ def setup():
             settings_data['valid_sections'] = valid_sections
         except (ValueError, TypeError, BadRequest):
             print('Unable to connect to Plex server.')
-
-    os_type, user_os_choice = get_os_info()
 
     while True:
         if 'number_episodes' not in settings_data:
