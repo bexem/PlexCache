@@ -80,13 +80,13 @@ def setup():
                             settings_data['plex_source'] = root_folder
                         for location in library.locations:
                             # Convert the path format based on the user's OS
+                            plex_library_folder = ("/" + os.path.basename(location) + "/")
+                            plex_library_folder = plex_library_folder.strip('/')
+                            plex_library_folders.append(plex_library_folder)
                             if user_os_choice.lower() == 'windows':
                                 plex_library_folder = convert_path_to_nt(plex_library_folder)
                             else:
                                 plex_library_folder = convert_path_to_posix(plex_library_folder)
-                            plex_library_folder = ("/" + os.path.basename(location) + "/")
-                            plex_library_folder = plex_library_folder.strip('/')
-                            plex_library_folders.append(plex_library_folder)
                             settings_data['plex_library_folders'] = plex_library_folders
                     else:
                         print("Invalid choice. Please enter either yes or no")
