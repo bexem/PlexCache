@@ -71,8 +71,8 @@ def setup():
                             location = library.locations[location_index]
                             if user_os_choice.lower() == 'windows':
                                         location = convert_path_to_nt(location)
-                                    else:
-                                        location = convert_path_to_posix(location)
+                            else:
+                                location = convert_path_to_posix(location)
                             root_folder = (os.path.dirname(location) + "/")
                             print(f"\nPlex source path autoselected and set to: {root_folder}")
                             settings_data['plex_source'] = root_folder
