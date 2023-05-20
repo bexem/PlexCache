@@ -251,15 +251,19 @@ def setup():
 
     while True:
         if 'unraid' not in settings_data:
-            unraid = input('\nAre you planning to run plexache.py on unraid?  [Y/n] ')  or 'yes'
-            if unraid.lower() in ['y', 'yes']:
-                settings_data['unraid'] = True
-                break
-            elif unraid.lower() in ['n', 'no']:
+            if user_os_choice.lower() == 'windows':
                 settings_data['unraid'] = False
                 break
             else:
-                print("Invalid choice. Please enter either yes or no")
+                unraid = input('\nAre you planning to run plexache.py on unraid?  [Y/n] ')  or 'yes'
+                if unraid.lower() in ['y', 'yes']:
+                    settings_data['unraid'] = True
+                    break
+                elif unraid.lower() in ['n', 'no']:
+                    settings_data['unraid'] = False
+                    break
+                else:
+                    print("Invalid choice. Please enter either yes or no")
 
     while True:
         if 'watched_move' not in settings_data:
