@@ -19,11 +19,11 @@ def is_valid_plex_url(url):
 
 def convert_path_to_posix(path):
     path = path.replace(ntpath.sep, posixpath.sep)
-    return posixpath.normpath(path)
+    return posixpath.normpath(path) + ("/" if not path.endswith("/") else "")
 
 def convert_path_to_nt(path):
     path = path.replace(posixpath.sep, ntpath.sep)
-    return ntpath.normpath(path)
+    return ntpath.normpath(path) + ("\\" if not path.endswith("\\") else "")
 
 def get_os_info():
     os_type = platform.system()
@@ -72,7 +72,7 @@ def setup():
                             location_index = 0 
                             location = library.locations[location_index]
                             if user_os_choice.lower() == 'windows':
-                                        location = convert_path_to_nt(location)
+                                location = convert_path_to_nt(location)
                             else:
                                 location = convert_path_to_posix(location)
                             root_folder = (os.path.dirname(location) + "/")
