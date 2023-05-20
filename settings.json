@@ -20,7 +20,7 @@
     "watchlist_cache_expiry": 48,
     "days_to_monitor": 183,
     "watched_move": true,
-    "watched_cache_expiry": 336,
+    "watched_cache_expiry": 48,
     "cache_dir": "/mnt/cache/",
     "real_source": "/mnt/user/",
     "nas_library_folders": [

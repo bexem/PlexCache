@@ -1,10 +1,10 @@
-import json, os, requests
+import json, os, requests, ntpath, posixpath, platform
 from plexapi.server import PlexServer
 from plexapi.exceptions import BadRequest
 
 # The script will create/edit the file in the same folder the script is located, but you can change that
 script_folder="."
-settings_filename = os.path.join(script_folder, "settings.json")
+settings_filename = os.path.join(script_folder, "settings_test.json")
         
 # Function to check for a valid plex url
 def is_valid_plex_url(url):
@@ -17,6 +17,24 @@ def is_valid_plex_url(url):
     print (response.headers)
     return False
 
+def convert_path_to_posix(path):
+    path = path.replace(ntpath.sep, posixpath.sep)
+    return posixpath.normpath(path)
+
+def convert_path_to_nt(path):
+    path = path.replace(posixpath.sep, ntpath.sep)
+    return ntpath.normpath(path)
+
+def get_os_info():
+    os_type = platform.system()
+    print(f"The script is currently running on a {os_type} system.")
+    user_os_choice = ""
+
+    while user_os_choice.lower() not in ['windows', 'linux']:
+        user_os_choice = input("\nOn which operating system are you planning to run the cache script? "
+                                "Please enter: 'Windows' or 'Linux': ")
+
+    return os_type, user_os_choice
 
 # Ask user for input for missing settings
 def setup():
@@ -43,7 +61,7 @@ def setup():
             while not valid_sections:
                 for library in libraries:
                     print(f"\nYour plex library name: {library.title}")
-                    include = input("Do you want to include this library? [Y/n] (default: yes) ") or 'yes'
+                    include = input("Do you want to include this library? [Y/n]  ") or 'yes'
                     if include.lower() in ['n', 'no']:
                         continue
                     elif include.lower() in ['y', 'yes']:
@@ -51,10 +69,19 @@ def setup():
                         if 'plex_source' not in settings_data:
                             location_index = 0 
                             location = library.locations[location_index]
+                            if user_os_choice.lower() == 'windows':
+                                        location = convert_path_to_nt(location)
+                                    else:
+                                        location = convert_path_to_posix(location)
                             root_folder = (os.path.dirname(location) + "/")
                             print(f"\nPlex source path autoselected and set to: {root_folder}")
                             settings_data['plex_source'] = root_folder
                         for location in library.locations:
+                            # Convert the path format based on the user's OS
+                            if user_os_choice.lower() == 'windows':
+                                plex_library_folder = convert_path_to_nt(plex_library_folder)
+                            else:
+                                plex_library_folder = convert_path_to_posix(plex_library_folder)
                             plex_library_folder = ("/" + os.path.basename(location) + "/")
                             plex_library_folder = plex_library_folder.strip('/')
                             plex_library_folders.append(plex_library_folder)
@@ -67,6 +94,8 @@ def setup():
         except (ValueError, TypeError, BadRequest):
             print('Unable to connect to Plex server.')
 
+    os_type, user_os_choice = get_os_info()
+
     while True:
         if 'number_episodes' not in settings_data:
             number_episodes = input('\nHow many episodes (digit) do you want fetch (onDeck)? (default: 5) ') or '5'
@@ -78,7 +107,7 @@ def setup():
 
     while True:
         if 'users_toggle' not in settings_data:
-            fetch_all_users = input('\nDo you want to fetch onDeck/watchlist media from all other users? (default: yes) ') or 'yes'
+            fetch_all_users = input('\nDo you want to fetch onDeck/watchlist media from all other users?  ') or 'yes'
             skip_users = []
             if fetch_all_users.lower() in ['y', 'yes']:
                 settings_data['users_toggle'] = True
@@ -154,14 +183,14 @@ def setup():
     if 'cache_dir' not in settings_data:
         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'
         while True:
-            test_path = input('\nDo you want to test the given path? [Y/n] (default: yes) ') or 'yes'
+            test_path = input('\nDo you want to test the given path? [Y/n]  ') or 'yes'
             if test_path.lower() in ['y', 'yes']:
                 if os.path.exists(cache_dir):
                     print('The path appears to be valid. Settings saved.')
                     break
                 else:
                     print('The path appears to be invalid.')
-                    edit_path = input('\nDo you want to edit the path? [Y/n] (default: yes) ') or 'yes'
+                    edit_path = input('\nDo you want to edit the path? [Y/n]  ') or 'yes'
                     if edit_path.lower() in ['y', 'yes']:
                         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'
                     elif edit_path.lower() in ['n', 'no']:
@@ -172,19 +201,23 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
+        if user_os_choice.lower() == 'windows':
+            cache_dir = convert_path_to_nt(cache_dir)
+        else:
+            cache_dir = convert_path_to_posix(cache_dir)
         settings_data['cache_dir'] = cache_dir
 
     if 'real_source' not in settings_data:
         real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user/") ').replace('"', '').replace("'", '') or '/mnt/user/'
         while True:
-            test_path = input('\nDo you want to test the given path? [Y/n] (default: yes) ') or 'yes'
+            test_path = input('\nDo you want to test the given path? [Y/n]  ') or 'yes'
             if test_path.lower() in ['y', 'yes']:
                 if os.path.exists(real_source):
                     print('The path appears to be valid. Settings saved.')
                     break
                 else:
                     print('The path appears to be invalid.')
-                    edit_path = input('\nDo you want to edit the path? [Y/n] (default: yes) ') or 'yes'
+                    edit_path = input('\nDo you want to edit the path? [Y/n]  ') or 'yes'
                     if edit_path.lower() in ['y', 'yes']:
                         real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user/") ').replace('"', '').replace("'", '') or '/mnt/user/'
                     elif edit_path.lower() in ['n', 'no']:
@@ -195,12 +228,20 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
+        if user_os_choice.lower() == 'windows':
+            real_source = convert_path_to_nt(real_source)
+        else:
+            real_source = convert_path_to_posix(real_source)
         settings_data['real_source'] = real_source
         num_folders = len(plex_library_folders)
         # Ask the user to input a corresponding value for each element in plex_library_folders
         nas_library_folder = []
         for i in range(num_folders):
             folder_name = input("Enter the corresponding NAS/Unraid library folder for the Plex mapped folder: (Default is the same as plex as shown) '%s' " % plex_library_folders[i]) or plex_library_folders[i]
+            if user_os_choice.lower() == 'windows':
+                folder_name = convert_path_to_nt(folder_name)
+            else:
+                folder_name = convert_path_to_posix(folder_name)
             # Remove the real_source from folder_name if it's present
             folder_name = folder_name.replace(real_source, '')
             # Remove leading/trailing slashes
@@ -210,7 +251,7 @@ def setup():
 
     while True:
         if 'unraid' not in settings_data:
-            unraid = input('\nAre you planning to run plexache.py on unraid? (default: yes) [Y/n] ')  or 'yes'
+            unraid = input('\nAre you planning to run plexache.py on unraid?  [Y/n] ')  or 'yes'
             if unraid.lower() in ['y', 'yes']:
                 settings_data['unraid'] = True
                 break
@@ -222,7 +263,7 @@ def setup():
 
     while True:
         if 'watched_move' not in settings_data:
-            watched_move = input('\nDo you want to move watched media from the cache back to the cache? (default: no) [Y/n] ')  or 'no'
+            watched_move = input('\nDo you want to move watched media from the cache back to the cache? [y/N] ')  or 'no'
             if watched_move.lower() in ['y', 'yes']:
                 settings_data['watched_move'] = True
                 while True:
