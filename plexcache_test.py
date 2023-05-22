@@ -277,7 +277,6 @@ def setup():
     while True:
         if 'watched_move' not in settings_data:
             watched_move = input('\nDo you want to move watched media from the cache back to the cache? [y/N] ')  or 'no'
-            settings_data['watched_cache_expiry'] = int('0')
             if watched_move.lower() in ['y', 'yes']:
                 settings_data['watched_move'] = True
                 while True:
