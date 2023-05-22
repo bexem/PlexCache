@@ -345,9 +345,23 @@ def filter_files(files, destination, real_source, cache_dir, fileToCache):
     return media_to or []
 
 def get_cache_paths(file, real_source, cache_dir):
-    cache_path = os.path.dirname(file).replace(real_source, cache_dir, 1)
-    cache_file_name = os.path.join(cache_path, os.path.basename(file))
-    return cache_path, cache_file_name
+    file_path = Path(file)
+    real_source_path = Path(real_source)
+    cache_dir_path = Path(cache_dir)
+
+    try:
+        relative_path = file_path.relative_to(real_source_path)
+    except ValueError:
+        # handle the error appropriately, maybe log it and return None, or re-raise
+        logging.warning(f"Error: file path {file_path} is not inside real source path {real_source_path}")
+        print(f"Error: file path {file_path} is not inside real source path {real_source_path}")
+        return None, None
+
+    cache_path = cache_dir_path / relative_path.parent
+    cache_file_name = cache_path / file_path.name
+
+    return str(cache_path), str(cache_file_name)
+
 
 def should_add_to_array(file, cache_file_name, fileToCache):
     if file in fileToCache:
@@ -390,13 +404,15 @@ def log_directory_path(directory_path):
         logging.info(f"Directory path: {directory_path}")
 
 def find_subtitle_files(directory_path, file):
-    file_name, file_ext = os.path.splitext(os.path.basename(file))
-    files_in_dir = os.listdir(directory_path)
+    directory_path = Path(directory_path)
+    file_path = Path(file)
+
+    file_name = file_path.stem
 
     subtitle_files = [
-        os.path.join(directory_path, f)
-        for f in files_in_dir
-        if f.startswith(file_name) and f != file_name + file_ext
+        str(f) 
+        for f in directory_path.iterdir() 
+        if f.stem.startswith(file_name) and f.name != file_path.name
     ]
 
     return subtitle_files or []
@@ -490,16 +506,29 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
 
 # Function to get the paths of the user and cache directories
 def get_paths(file_to_move, real_source, cache_dir, unraid):
-    user_path = os.path.dirname(file_to_move)
-    relative_path = os.path.relpath(user_path, real_source)
-    cache_path = os.path.join(cache_dir, relative_path)
-    cache_file_name = os.path.join(cache_path, os.path.basename(file_to_move))
+    file_to_move_path = Path(file_to_move)
+    real_source_path = Path(real_source)
+    cache_dir_path = Path(cache_dir)
+
+    try:
+        relative_path = file_to_move_path.relative_to(real_source_path)
+    except ValueError:
+        logging.warning(f"Error: file path {file_to_move_path} is not inside real source path {real_source_path}")
+        print(f"Error: file path {file_to_move_path} is not inside real source path {real_source_path}")
+        return None, None, None, None
+
+    cache_path = cache_dir_path / relative_path.parent
+    cache_file_name = cache_path / file_to_move_path.name
+
+    user_path = file_to_move_path.parent
 
     if unraid:
-        user_path = user_path.replace("/mnt/user/", "/mnt/user0/", 1)
-    user_file_name = os.path.join(user_path, os.path.basename(file_to_move))
+        user_path = Path(str(user_path).replace("/mnt/user/", "/mnt/user0/", 1))
 
-    return user_path, cache_path, cache_file_name, user_file_name
+    user_file_name = user_path / file_to_move_path.name
+
+    return str(user_path), str(cache_path), str(cache_file_name), str(user_file_name)
+
 
 # Function to get the move command for the given file
 def get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path):
@@ -539,7 +568,7 @@ def is_connected():
         return False
 
 print("Initialising script...")
-logging.info("Initializing script...")
+logging.info("Initialising script...")
 print("Checking paths and permissions...")
 logging.info("Checking paths and permissions...")
 for path in [real_source, cache_dir]:

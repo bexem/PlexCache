@@ -3,7 +3,7 @@
 This Python script reduces energy consumption by minimizing the need to spin up the array/disk(s) when watching recurrent media like TV series. It achieves this by moving the media from the OnDeck and watchlist media for the main user and other users. For TV shows/anime, it also fetches the next specified number of episodes.
 
 The project contains two scripts: a setup script and a main script. The setup script prompts the user to specify the folders where the media is stored and fetches the mapped Plex media paths and will create the settings file, which can also be created/edited manually.
-The script should be compatible with other systems, especially Linux-based ones, although I have primarily tested it on Unraid. While I cannot  support every case, it's worth checking the GitHub issues to see if your specific case has already been discussed. I will still try to help out, but please note that I make no promises in providing assistance for every scenario. For better compatibility, it is highly advised to use the setup script.
+The script should be compatible with other systems, especially Linux-based ones, although I have primarily tested it on Unraid with plex as docker container. While I cannot  support every case, it's worth checking the GitHub issues to see if your specific case has already been discussed. I will still try to help out, but please note that I make no promises in providing assistance for every scenario. For better compatibility, it is highly advised to use the setup script.
 
 # The script can:
 - Fetch a specified number of episodes from the "onDeck" for the main user and other users;
