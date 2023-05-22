@@ -31,15 +31,17 @@ def get_os_info():
     user_os_choice = ""
 
     while user_os_choice.lower() not in ['windows', 'linux']:
-        user_os_choice = input("\nOn which operating system are you planning to run the cache script? "
+        user_os_choice = input("\nOn which Operative System is the Plex server running?\n"
                                 "Please enter: 'Windows' or 'Linux': ")
 
     return os_type, user_os_choice
 
 os_type, user_os_choice = get_os_info()
 
+
 # Ask user for input for missing settings
 def setup():
+
     while 'PLEX_URL' not in settings_data:
         url = input('\nEnter your plex server address (Example: http://localhost:32400 or https://plex.mydomain.ext): ')
         try:
@@ -50,6 +52,7 @@ def setup():
                 print('Invalid Plex URL')
         except requests.exceptions.RequestException:
             print("URL is not valid.")
+
 
     while 'PLEX_TOKEN' not in settings_data:
         token = input('\nEnter your plex token: ')
@@ -109,16 +112,16 @@ def setup():
 
     while True:
         if 'users_toggle' not in settings_data:
-            fetch_all_users = input('\nDo you want to fetch onDeck/watchlist media from all other users?  ') or 'yes'
+            fetch_all_users = input('\nDo you want to fetch onDeck/watchlist media from all other users?  [Y/n] ') or 'yes'
             skip_users = []
             if fetch_all_users.lower() in ['y', 'yes']:
                 settings_data['users_toggle'] = True
-                skip_users_choice = input('\nWould you like to skip some of the users? [Y/n] (default: no) ') or 'no'
+                skip_users_choice = input('\nWould you like to skip some of the users? [y/N]') or 'no'
                 if skip_users_choice.lower() in ['y', 'yes']:
                     for user in plex.myPlexAccount().users():
                         username = user.title
                         while True:
-                            answer = input(f'\nDo you want to skip this user? {username} [Y/n] (default: no) ') or 'no'
+                            answer = input(f'\nDo you want to skip this user? {username} [y/N] ') or 'no'
                             if answer.lower() in ['y', 'yes']:
                                 token = user.get_token(plex.machineIdentifier)
                                 skip_users.append(token)
@@ -144,11 +147,11 @@ def setup():
 
     while True:
         if 'watchlist_toggle' not in settings_data:
-            watchlist = input('\nDo you want to fetch your watchlist media? [Y/n] (default: no) ') or 'no'
+            watchlist = input('\nDo you want to fetch your watchlist media? [y/N] ') or 'no'
             if watchlist.lower() in ['n', 'no']:
                 settings_data['watchlist_toggle'] = False
-                settings_data['watchlist_episodes'] = '0'
-                settings_data['watchlist_cache_expiry'] = '1'
+                settings_data['watchlist_episodes'] = int('0')
+                settings_data['watchlist_cache_expiry'] = int('1')
                 break
             elif watchlist.lower() in ['y', 'yes']:
                 settings_data['watchlist_toggle'] = True
@@ -185,14 +188,14 @@ def setup():
     if 'cache_dir' not in settings_data:
         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'
         while True:
-            test_path = input('\nDo you want to test the given path? [Y/n]  ') or 'yes'
+            test_path = input('\nDo you want to test the given path? [y/N]  ') or 'no'
             if test_path.lower() in ['y', 'yes']:
                 if os.path.exists(cache_dir):
                     print('The path appears to be valid. Settings saved.')
                     break
                 else:
                     print('The path appears to be invalid.')
-                    edit_path = input('\nDo you want to edit the path? [Y/n]  ') or 'yes'
+                    edit_path = input('\nDo you want to edit the path? [y/N]  ') or 'no'
                     if edit_path.lower() in ['y', 'yes']:
                         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'
                     elif edit_path.lower() in ['n', 'no']:
@@ -212,14 +215,14 @@ def setup():
     if 'real_source' not in settings_data:
         real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user/") ').replace('"', '').replace("'", '') or '/mnt/user/'
         while True:
-            test_path = input('\nDo you want to test the given path? [Y/n]  ') or 'yes'
+            test_path = input('\nDo you want to test the given path? [y/N]  ') or 'no'
             if test_path.lower() in ['y', 'yes']:
                 if os.path.exists(real_source):
                     print('The path appears to be valid. Settings saved.')
                     break
                 else:
                     print('The path appears to be invalid.')
-                    edit_path = input('\nDo you want to edit the path? [Y/n]  ') or 'yes'
+                    edit_path = input('\nDo you want to edit the path? [y/N]  ') or 'no'
                     if edit_path.lower() in ['y', 'yes']:
                         real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user/") ').replace('"', '').replace("'", '') or '/mnt/user/'
                     elif edit_path.lower() in ['n', 'no']:
@@ -239,7 +242,7 @@ def setup():
         # Ask the user to input a corresponding value for each element in plex_library_folders
         nas_library_folder = []
         for i in range(num_folders):
-            folder_name = input("Enter the corresponding NAS/Unraid library folder for the Plex mapped folder: (Default is the same as plex as shown) '%s' " % plex_library_folders[i]) or plex_library_folders[i]
+            folder_name = input("\nEnter the corresponding NAS/Unraid library folder for the Plex mapped folder: (Default is the same as plex as shown) '%s' " % plex_library_folders[i]) or plex_library_folders[i]
             if user_os_choice.lower() == 'windows':
                 folder_name = convert_path_to_nt(folder_name)
             else:
@@ -257,7 +260,7 @@ def setup():
                 settings_data['unraid'] = False
                 break
             else:
-                unraid = input('\nAre you planning to run plexache.py on unraid?  [Y/n] ')  or 'yes'
+                unraid = input('\nAre you planning to run plexache.py on unraid? [Y/n] ')  or 'yes'
                 if unraid.lower() in ['y', 'yes']:
                     settings_data['unraid'] = True
                     break
@@ -283,14 +286,14 @@ def setup():
                 break
             elif watched_move.lower() in ['n', 'no']:
                 settings_data['watched_move'] = False
-                settings_data['watchlist_cache_expiry'] = 0
+                settings_data['watched_cache_expiry'] = int('0')
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
 
     while True:
         if 'skip' not in settings_data:
-            session = input('\nIf there is an active session in plex (someone is playing a media) do you want to exit the script or just skip the playing media? (default: skip) [skip/exit] ') or 'skip'
+            session = input('\nIf there is an active session in plex (someone is playing a media) do you want to exit the script or just skip the playing media? [SKIP/exit] ') or 'skip'
             if session.lower() == 'skip':
                 settings_data['skip'] = True
                 break
@@ -324,7 +327,7 @@ def setup():
 
     while True:
         if 'debug' not in settings_data:
-            debug = input('\nDo you want to debug the script? No data will actually be moved. (default: no) [Y/n] ') or 'no'
+            debug = input('\nDo you want to debug the script? No data will actually be moved. [y/N] ') or 'no'
             if debug.lower() in ['y', 'yes']:
                 settings_data['debug'] = True
                 break
@@ -354,7 +357,7 @@ while True:
                 settings_data = json.load(f)
                 print(settings_filename)
                 print("Settings file exists, loading...!\n")
-                if not settings_data.get('firststart'):
+                if settings_data.get('firststart'):
                     print("First start unset or set to yes:\nPlease answer the following questions: \n")
                     settings_data = {}
                     setup()
@@ -376,7 +379,6 @@ while True:
         creation = input("\nIf the name is correct, do you want to create the file? {Y/n] (default = yes) ") or 'yes'
         if creation.lower() in ['y', 'yes']:
             with open(settings_filename, 'w') as f:
-                json.dump({}, f)
                 settings_data = {}
                 print("Setting file created successfully!\n")
                 setup()
