@@ -36,7 +36,7 @@ def get_os_info():
 
     return os_type, user_os_choice
 
-os_type, user_os_choice = get_os_info()
+#os_type, user_os_choice = get_os_info()
 
 
 # Ask user for input for missing settings
@@ -60,6 +60,8 @@ def setup():
             plex = PlexServer(settings_data['PLEX_URL'], token)
             libraries = plex.library.sections()
             settings_data['PLEX_TOKEN'] = token
+            operating_system = plex.platform
+            print(f"\nPlex is running on {operating_system}")
             print('Connection successful!')
             valid_sections = []
             plex_library_folders = []
@@ -74,24 +76,22 @@ def setup():
                         if 'plex_source' not in settings_data:
                             location_index = 0 
                             location = library.locations[location_index]
-                            print(f"\n **** Pre path conversion Location variable value: {location}")
-                            if user_os_choice.lower() == 'windows':
-                                location = convert_path_to_nt(location)
+                            if operating_system.lower() == 'linux':
+                                location = convert_path_to_posix(location)
                                 root_folder = ntpath.splitdrive(location)[0] + "/" 
                             else:
-                                location = convert_path_to_posix(location)
-                                root_folder = (os.path.dirname(location) + "/")
-                            print(f"\n **** Post path conversion Location variable value: {location}")
+                                location = convert_path_to_nt(location)
+                                root_folder = (ntpath.splitdrive(location)[0] + "\\")  # Fix for plex_source
                             print(f"\nPlex source path autoselected and set to: {root_folder}")
                             settings_data['plex_source'] = root_folder
                         for location in library.locations:
                             # Convert the path format based on the user's OS
-                            plex_library_folder = os.path.basename(location)
-                            plex_library_folders.append(plex_library_folder)
-                            if user_os_choice.lower() == 'windows':
-                                plex_library_folder = convert_path_to_nt(plex_library_folder)
+                            if operating_system.lower() == 'linux':
+                                plex_library_folder = convert_path_to_posix(location)
                             else:
-                                plex_library_folder = convert_path_to_posix(plex_library_folder)
+                                plex_library_folder = convert_path_to_nt(location)
+                            plex_library_folder = os.path.basename(plex_library_folder)  # Fix for plex_library_folders
+                            plex_library_folders.append(plex_library_folder)
                             settings_data['plex_library_folders'] = plex_library_folders
                     else:
                         print("Invalid choice. Please enter either yes or no")
@@ -206,10 +206,10 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
-        if user_os_choice.lower() == 'windows':
-            cache_dir = convert_path_to_nt(cache_dir)
-        else:
+        if operating_system.lower() == 'linux':
             cache_dir = convert_path_to_posix(cache_dir)
+        else:
+            cache_dir = convert_path_to_nt(cache_dir)
         settings_data['cache_dir'] = cache_dir
 
     if 'real_source' not in settings_data:
@@ -233,20 +233,20 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
-        if user_os_choice.lower() == 'windows':
-            real_source = convert_path_to_nt(real_source)
-        else:
+        if operating_system.lower() == 'linux':
             real_source = convert_path_to_posix(real_source)
+        else:
+            real_source = convert_path_to_nt(real_source)
         settings_data['real_source'] = real_source
         num_folders = len(plex_library_folders)
         # Ask the user to input a corresponding value for each element in plex_library_folders
         nas_library_folder = []
         for i in range(num_folders):
             folder_name = input("\nEnter the corresponding NAS/Unraid library folder for the Plex mapped folder: (Default is the same as plex as shown) '%s' " % plex_library_folders[i]) or plex_library_folders[i]
-            if user_os_choice.lower() == 'windows':
-                folder_name = convert_path_to_nt(folder_name)
-            else:
+            if operating_system.lower() == 'linux':
                 folder_name = convert_path_to_posix(folder_name)
+            else:
+                folder_name = convert_path_to_nt(folder_name)
             # Remove the real_source from folder_name if it's present
             folder_name = folder_name.replace(real_source, '')
             # Remove leading/trailing slashes
@@ -256,11 +256,8 @@ def setup():
 
     while True:
         if 'unraid' not in settings_data:
-            if user_os_choice.lower() == 'windows':
-                settings_data['unraid'] = False
-                break
-            else:
-                unraid = input('\nAre you planning to run plexache.py on unraid? [Y/n] ')  or 'yes'
+            if operating_system.lower() == 'linux':
+                unraid = input('\nAre you planning to run plexache.py on unraid?  [Y/n] ')  or 'yes'
                 if unraid.lower() in ['y', 'yes']:
                     settings_data['unraid'] = True
                     break
@@ -269,6 +266,9 @@ def setup():
                     break
                 else:
                     print("Invalid choice. Please enter either yes or no")
+            else:
+                settings_data['unraid'] = False
+                break
 
     while True:
         if 'watched_move' not in settings_data:
