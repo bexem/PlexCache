@@ -323,7 +323,6 @@ def convert_path(file_path, plex_source, real_source):
 
     return file_path
 
-
 # Function to change the paths to the correct ones
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
     print("Editing file paths...")
@@ -337,8 +336,11 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
     for i, file_path in enumerate(files):
         # Convert path format if script is running on Linux
         if platform.system() == "Linux":
+            print("Converting file paths...")
+            logging.info(f"Pre-Conversion file path {file_path}")
             file_path = convert_path(file_path, plex_source, real_source)
-            
+            logging.info(f"Post-Conversion file path {file_path}")
+
         for j, folder in enumerate(plex_library_folders): # Determine which library folder is in the file path
             if folder in file_path:
                 file_path = file_path.replace(folder, nas_library_folders[j]) # Replace the plex library folder with the corresponding NAS library folder             
