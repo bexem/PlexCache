@@ -3,7 +3,7 @@
 This Python script reduces energy consumption by minimizing the need to spin up the array/disk(s) when watching recurrent media like TV series. It achieves this by moving the media from the OnDeck and watchlist media for the main user and other users. For TV shows/anime, it also fetches the next specified number of episodes.
 
 The project contains two scripts: a setup script and a main script. The setup script prompts the user to specify the folders where the media is stored and fetches the mapped Plex media paths and will create the settings file, which can also be created/edited manually.
-The script was initially developed for Unraid but is compatible with other systems.
+The script should be compatible with other systems, especially Linux-based ones, although I have primarily tested it on Unraid. While I cannot  support every case, it's worth checking the GitHub issues to see if your specific case has already been discussed. I will still try to help out, but please note that I make no promises in providing assistance for every scenario. For better compatibility, it is highly advised to use the setup script.
 
 # The script can:
 - Fetch a specified number of episodes from the "onDeck" for the main user and other users;
@@ -39,7 +39,7 @@ Not required but if you start having issues fetching other users media, you can 
 The instructions below are applicable to the main operating systems:
 1) Check Python Installation: 
 - First, you need to check whether Python is installed on your system. On Windows, open the Command Prompt or PowerShell, and on macOS or Linux, open the Terminal. 
-    Type "python --version" and hit enter. If you see a version number, then Python is already installed (skip step 2), otherwise, you need to download and install Python.
+    Type "python3 --version" and hit enter. If you see a version number, then Python is already installed (skip step 2), otherwise, you need to download and install Python.
 2) Install Python: 
 - If Python is not installed, then go to the official Python website[^2] and download the latest version for your operating system. Follow the instructions in the installer to complete the installation.
 3) Install the "plexapi" and "requests" modules: 
@@ -57,7 +57,7 @@ Note that the **"settings.json"** file is assumed to be located in the same dire
 1) For users of Unraid, the following instructions can be followed to execute the script:
 
     - A) Install Python directly on Unraid (using NerdTools[^4] plugin) and manually install the required dependencies (plexapi). Then, run the script using cron or the User Scripts plugin[^5]. However, this method is not officially recommended, but I have personally noticed some random authentication errors in chronos.
-    
+
     - B) Execute it on Chronos[^3] (docker container), which can be installed from the Unraid app store:   
             - Allocate an additional path to the default ones and direct it to "/mnt" in both the host and the container. Also, set the container network type: to Host. 
             - Create a new script, configure how to trigger it (preferably using cron), and paste the contents of the plexoncache.py script in the Python script box, change the path of the settings_filename variable accordingly before proceeding.
@@ -69,7 +69,6 @@ Note that the **"settings.json"** file is assumed to be located in the same dire
 
 # Thank you:
 To brimur[^1], your script is what helped and inspired me in the first place, **and thank you** to every single one which contributed and even just commented about the project. ❤️
-
 
 [^1]: [brimur/preCachePlexOnDeckEpiosodes.py](https://gist.github.com/brimur/95277e75ca399d5d52b61e6aa192d1cd)
 [^2]: [Python Download](https://wiki.python.org/moin/BeginnersGuide/Download)

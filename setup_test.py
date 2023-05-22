@@ -281,6 +281,7 @@ def setup():
                 break
             elif watched_move.lower() in ['n', 'no']:
                 settings_data['watched_move'] = False
+                settings_data['watchlist_cache_expiry'] = 0
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
