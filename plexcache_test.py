@@ -1,4 +1,4 @@
-import os, json, logging, glob, subprocess, socket
+import os, json, logging, glob, subprocess, socket, platform
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -139,6 +139,7 @@ def log_file_info(file, cache_path, cache_file_name):
         logging.info(f"File: {file}")
         logging.info(f"Cache_path: {cache_path}")
         logging.info(f"Cache_file_name: {cache_file_name}")
+
 
 # Function to fetch onDeck media files
 def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, user=None):
@@ -300,15 +301,44 @@ def load_watched_media_from_cache(cache_file):
             return set(json.load(f))
     return set()
 
+# Convert windows path to a compatible format
+def convert_path(file_path, plex_source, real_source):
+    # Check if path is in Windows format
+    if "\\" in file_path or ":" in file_path:
+        # Split on ':' to remove the drive letter
+        parts = file_path.split(":", 1)
+        if len(parts) > 1:
+            file_path = parts[1]
+
+        # Replace backslashes with forward slashes
+        file_path = file_path.replace("\\", "/")
+
+        # If there was a leading backslash, remove it
+        if file_path.startswith("/"):
+            file_path = file_path[1:]
+
+    # If plex_source is present in the path, replace it with the real_source_path
+    if plex_source in file_path:
+        file_path = file_path.replace(plex_source, real_source, 1)
+
+    return file_path
+
+
 # Function to change the paths to the correct ones
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
     print("Editing file paths...")
     logging.info("Editing file paths...")
     if files is None:
         return []
+
+    # Only process files with plex_source
     files = [file_path for file_path in files if file_path.startswith(plex_source)]
+    
     for i, file_path in enumerate(files):
-        file_path = file_path.replace(plex_source, real_source, 1) # Replace the plex_source with the real_source, thanks to /u/planesrfun
+        # Convert path format if script is running on Linux
+        if platform.system() == "Linux":
+            file_path = convert_path(file_path, plex_source, real_source)
+            
         for j, folder in enumerate(plex_library_folders): # Determine which library folder is in the file path
             if folder in file_path:
                 file_path = file_path.replace(folder, nas_library_folders[j]) # Replace the plex library folder with the corresponding NAS library folder             
@@ -345,23 +375,9 @@ def filter_files(files, destination, real_source, cache_dir, fileToCache):
     return media_to or []
 
 def get_cache_paths(file, real_source, cache_dir):
-    file_path = Path(file)
-    real_source_path = Path(real_source)
-    cache_dir_path = Path(cache_dir)
-
-    try:
-        relative_path = file_path.relative_to(real_source_path)
-    except ValueError:
-        # handle the error appropriately, maybe log it and return None, or re-raise
-        logging.warning(f"Error: file path {file_path} is not inside real source path {real_source_path}")
-        print(f"Error: file path {file_path} is not inside real source path {real_source_path}")
-        return None, None
-
-    cache_path = cache_dir_path / relative_path.parent
-    cache_file_name = cache_path / file_path.name
-
-    return str(cache_path), str(cache_file_name)
-
+    cache_path = os.path.dirname(file).replace(real_source, cache_dir, 1)
+    cache_file_name = os.path.join(cache_path, os.path.basename(file))
+    return cache_path, cache_file_name
 
 def should_add_to_array(file, cache_file_name, fileToCache):
     if file in fileToCache:
@@ -404,15 +420,13 @@ def log_directory_path(directory_path):
         logging.info(f"Directory path: {directory_path}")
 
 def find_subtitle_files(directory_path, file):
-    directory_path = Path(directory_path)
-    file_path = Path(file)
-
-    file_name = file_path.stem
+    file_name, file_ext = os.path.splitext(os.path.basename(file))
+    files_in_dir = os.listdir(directory_path)
 
     subtitle_files = [
-        str(f) 
-        for f in directory_path.iterdir() 
-        if f.stem.startswith(file_name) and f.name != file_path.name
+        os.path.join(directory_path, f)
+        for f in files_in_dir
+        if f.startswith(file_name) and f != file_name + file_ext
     ]
 
     return subtitle_files or []
@@ -506,29 +520,16 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
 
 # Function to get the paths of the user and cache directories
 def get_paths(file_to_move, real_source, cache_dir, unraid):
-    file_to_move_path = Path(file_to_move)
-    real_source_path = Path(real_source)
-    cache_dir_path = Path(cache_dir)
-
-    try:
-        relative_path = file_to_move_path.relative_to(real_source_path)
-    except ValueError:
-        logging.warning(f"Error: file path {file_to_move_path} is not inside real source path {real_source_path}")
-        print(f"Error: file path {file_to_move_path} is not inside real source path {real_source_path}")
-        return None, None, None, None
-
-    cache_path = cache_dir_path / relative_path.parent
-    cache_file_name = cache_path / file_to_move_path.name
-
-    user_path = file_to_move_path.parent
+    user_path = os.path.dirname(file_to_move)
+    relative_path = os.path.relpath(user_path, real_source)
+    cache_path = os.path.join(cache_dir, relative_path)
+    cache_file_name = os.path.join(cache_path, os.path.basename(file_to_move))
 
     if unraid:
-        user_path = Path(str(user_path).replace("/mnt/user/", "/mnt/user0/", 1))
+        user_path = user_path.replace("/mnt/user/", "/mnt/user0/", 1)
+    user_file_name = os.path.join(user_path, os.path.basename(file_to_move))
 
-    user_file_name = user_path / file_to_move_path.name
-
-    return str(user_path), str(cache_path), str(cache_file_name), str(user_file_name)
-
+    return user_path, cache_path, cache_file_name, user_file_name
 
 # Function to get the move command for the given file
 def get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path):
@@ -568,7 +569,7 @@ def is_connected():
         return False
 
 print("Initialising script...")
-logging.info("Initialising script...")
+logging.info("Initializing script...")
 print("Checking paths and permissions...")
 logging.info("Checking paths and permissions...")
 for path in [real_source, cache_dir]:
