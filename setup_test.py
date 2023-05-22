@@ -88,9 +88,11 @@ def setup():
                             # Convert the path format based on the user's OS
                             if operating_system.lower() == 'linux':
                                 plex_library_folder = convert_path_to_posix(location)
+                                plex_library_folder = plex_library_folder.strip('/')
                             else:
                                 plex_library_folder = convert_path_to_nt(location)
-                            plex_library_folder = os.path.basename(plex_library_folder)  # Fix for plex_library_folders
+                                plex_library_folder = [directories[-1] for directories in [os.path.split(plex_library_folder)[0].split("\\")]][0]
+                            #plex_library_folder = os.path.basename(plex_library_folder)  # Fix for plex_library_folders
                             plex_library_folders.append(plex_library_folder)
                             settings_data['plex_library_folders'] = plex_library_folders
                     else:
@@ -140,6 +142,7 @@ def setup():
                     continue
             elif fetch_all_users.lower() in ['n', 'no']:
                 settings_data['users_toggle'] = False
+                settings_data['skip_users'] = []
             else:
                 print("Invalid choice. Please enter either yes or no")
                 continue
@@ -206,10 +209,10 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
-        if operating_system.lower() == 'linux':
-            cache_dir = convert_path_to_posix(cache_dir)
-        else:
-            cache_dir = convert_path_to_nt(cache_dir)
+        #if operating_system.lower() == 'linux':
+        #    cache_dir = convert_path_to_posix(cache_dir)
+        #else:
+        #    cache_dir = convert_path_to_nt(cache_dir)
         settings_data['cache_dir'] = cache_dir
 
     if 'real_source' not in settings_data:
@@ -233,20 +236,20 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
-        if operating_system.lower() == 'linux':
-            real_source = convert_path_to_posix(real_source)
-        else:
-            real_source = convert_path_to_nt(real_source)
+        #if operating_system.lower() == 'linux':
+        #    real_source = convert_path_to_posix(real_source)
+        #else:
+        #    real_source = convert_path_to_nt(real_source)
         settings_data['real_source'] = real_source
         num_folders = len(plex_library_folders)
         # Ask the user to input a corresponding value for each element in plex_library_folders
         nas_library_folder = []
         for i in range(num_folders):
             folder_name = input("\nEnter the corresponding NAS/Unraid library folder for the Plex mapped folder: (Default is the same as plex as shown) '%s' " % plex_library_folders[i]) or plex_library_folders[i]
-            if operating_system.lower() == 'linux':
-                folder_name = convert_path_to_posix(folder_name)
-            else:
-                folder_name = convert_path_to_nt(folder_name)
+            #if operating_system.lower() == 'linux':
+            #    folder_name = convert_path_to_posix(folder_name)
+            #else:
+            #    folder_name = convert_path_to_nt(folder_name)
             # Remove the real_source from folder_name if it's present
             folder_name = folder_name.replace(real_source, '')
             # Remove leading/trailing slashes
@@ -273,6 +276,7 @@ def setup():
     while True:
         if 'watched_move' not in settings_data:
             watched_move = input('\nDo you want to move watched media from the cache back to the cache? [y/N] ')  or 'no'
+            settings_data['watched_cache_expiry'] = int('0')
             if watched_move.lower() in ['y', 'yes']:
                 settings_data['watched_move'] = True
                 while True:
