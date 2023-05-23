@@ -18,6 +18,18 @@ def is_valid_plex_url(url):
     print (response.headers)
     return False
 
+def check_directory_exists(folder):
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f'Wrong path given, please edit the "{folder}" variable accordingly.')
+    
+def read_existing_settings(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def write_settings(filename, data):
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=4)
+
 def convert_path_to_posix(path):
     path = path.replace(ntpath.sep, posixpath.sep)
     return posixpath.normpath(path) + ("/" if not path.endswith("/") else "")
@@ -30,18 +42,35 @@ def get_os_info():
     os_type = platform.system()
     print(f"The script is currently running on a {os_type} system.")
     user_os_choice = ""
-
     while user_os_choice.lower() not in ['windows', 'linux']:
         user_os_choice = input("\nOn which Operative System is the Plex server running?\n"
                                 "Please enter: 'Windows' or 'Linux': ")
+    return user_os_choice
 
-    return os_type, user_os_choice
+def prompt_user_for_number(prompt_message, default_value, data_key, data_type=int):
+    while True:
+        user_input = input(prompt_message) or default_value
+        if user_input.isdigit():
+            settings_data[data_key] = data_type(user_input)
+            break
+        else:
+            print("User input is not a number")
 
-#os_type, user_os_choice = get_os_info()
-
+def prompt_user_for_choice(prompt_message, default_value, data_key):
+    while 'unraid' not in settings_data:
+        user_input = input(prompt_message) or default_value
+        if user_input.lower() in ['y', 'yes']:
+            settings_data[data_key] = True
+            break
+        elif user_input.lower() in ['n', 'no']:
+            settings_data[data_key] = False
+            break
+        else:
+            print("Invalid choice. Please enter either yes or no")
 
 # Ask user for input for missing settings
 def setup():
+    settings_data['firststart'] = False
 
     while 'PLEX_URL' not in settings_data:
         url = input('\nEnter your plex server address (Example: http://localhost:32400 or https://plex.mydomain.ext): ')
@@ -53,7 +82,6 @@ def setup():
                 print('Invalid Plex URL')
         except requests.exceptions.RequestException:
             print("URL is not valid.")
-
 
     while 'PLEX_TOKEN' not in settings_data:
         token = input('\nEnter your plex token: ')
@@ -88,7 +116,6 @@ def setup():
                             settings_data['plex_source'] = root_folder
                         for location in library.locations:
                             if operating_system.lower() == 'linux':
-                                #plex_library_folder = convert_path_to_posix(location)
                                 plex_library_folder = ("/" + os.path.basename(location) + "/")
                                 plex_library_folder = plex_library_folder.strip('/')
                             else:
@@ -104,90 +131,60 @@ def setup():
         except (ValueError, TypeError, BadRequest):
             print('Unable to connect to Plex server.')
 
-    while True:
-        if 'number_episodes' not in settings_data:
-            number_episodes = input('\nHow many episodes (digit) do you want fetch (onDeck)? (default: 5) ') or '5'
-            if number_episodes.isdigit():
-                settings_data['number_episodes'] = int(number_episodes)
-                break
-            else:
-                print("User input is not a number")
+    while 'number_episodes' not in settings_data:
+        prompt_user_for_number('\nHow many episodes (digit) do you want fetch (onDeck)? (default: 5) ', '5', 'number_episodes')
 
-    while True:
-        if 'users_toggle' not in settings_data:
-            fetch_all_users = input('\nDo you want to fetch onDeck/watchlist media from all other users?  [Y/n] ') or 'yes'
-            skip_users = []
-            if fetch_all_users.lower() in ['y', 'yes']:
-                settings_data['users_toggle'] = True
-                skip_users_choice = input('\nWould you like to skip some of the users? [y/N]') or 'no'
-                if skip_users_choice.lower() in ['y', 'yes']:
-                    for user in plex.myPlexAccount().users():
-                        username = user.title
-                        while True:
-                            answer = input(f'\nDo you want to skip this user? {username} [y/N] ') or 'no'
-                            if answer.lower() in ['y', 'yes']:
-                                token = user.get_token(plex.machineIdentifier)
-                                skip_users.append(token)
-                                print("\n", username, " will be skipped.")
-                                break
-                            elif answer.lower() in ['n', 'no']:
-                                break
-                            else:
-                                print("Invalid choice. Please enter either yes or no")
-                                continue
-                    settings_data['skip_users'] = skip_users
-                elif skip_users_choice.lower() in ['n', 'no']:
-                    settings_data['skip_users'] = []
-                else:
-                    print("Invalid choice. Please enter either yes or no")
-                    continue
-            elif fetch_all_users.lower() in ['n', 'no']:
-                settings_data['users_toggle'] = False
-                settings_data['skip_users'] = []
-            else:
+    while 'users_toggle' not in settings_data:
+        skip_users = []
+        fetch_all_users = input('\nDo you want to fetch onDeck/watchlist media from all other users?  [Y/n] ') or 'yes'
+        if fetch_all_users.lower() not in ['y', 'yes', 'n', 'no']:
+            print("Invalid choice. Please enter either yes or no")
+            continue
+        if fetch_all_users.lower() in ['y', 'yes']:
+            settings_data['users_toggle'] = True
+            skip_users_choice = input('\nWould you like to skip some of the users? [y/N]') or 'no'
+            if skip_users_choice.lower() not in ['y', 'yes', 'n', 'no']:
                 print("Invalid choice. Please enter either yes or no")
                 continue
-            break
-
-    while True:
-        if 'watchlist_toggle' not in settings_data:
-            watchlist = input('\nDo you want to fetch your watchlist media? [y/N] ') or 'no'
-            if watchlist.lower() in ['n', 'no']:
-                settings_data['watchlist_toggle'] = False
-                settings_data['watchlist_episodes'] = int('0')
-                settings_data['watchlist_cache_expiry'] = int('1')
-                break
-            elif watchlist.lower() in ['y', 'yes']:
-                settings_data['watchlist_toggle'] = True
-                while True:
-                    watchlist_episodes = input('How many episodes do you want fetch (watchlist) (default: 1)? ') or '1'
-                    if watchlist_episodes.isdigit():
-                        settings_data['watchlist_episodes'] = int(watchlist_episodes)
+            if skip_users_choice.lower() in ['y', 'yes']:
+                for user in plex.myPlexAccount().users():
+                    username = user.title
+                    while True:
+                        answer = input(f'\nDo you want to skip this user? {username} [y/N] ') or 'no'
+                        if answer.lower() not in ['y', 'yes', 'n', 'no']:
+                            print("Invalid choice. Please enter either yes or no")
+                            continue                
+                        if answer.lower() in ['y', 'yes']:
+                            token = user.get_token(plex.machineIdentifier)
+                            skip_users.append(token)
+                            print("\n", username, " will be skipped.")                       
                         break
-                    else:
-                        print("User input is not a number")
-                while True:
-                    if 'watchlist_cache_expiry' not in settings_data:
-                        hours = input('\nDefine the watchlist cache expiry duration in hours (default: 6) ') or '6'
-                        if hours.isdigit():
-                            settings_data['watchlist_cache_expiry'] = int(hours)
-                            break
-                        else:
-                            print("User input is not a number")
-                break
-            else:
-                print("Invalid choice. Please enter either yes or no")
-
-    while True:
-        if 'days_to_monitor' not in settings_data:
-            days = input('\nMaximum age of the media onDeck to be fetched? (default: 99) ') or '99'
-            if days.isdigit():
-                settings_data['days_to_monitor'] = int(days)
-                break
-            else:
-                print("User input is not a number")
         else:
-            break
+            settings_data['users_toggle'] = False
+        settings_data['skip_users'] = skip_users
+
+    while 'watchlist_toggle' not in settings_data:
+        watchlist = input('\nDo you want to fetch your watchlist media? [y/N] ') or 'no'
+        if watchlist.lower() in ['n', 'no']:
+            settings_data['watchlist_toggle'] = False
+            settings_data['watchlist_episodes'] = 0
+            settings_data['watchlist_cache_expiry'] = 1
+        elif watchlist.lower() in ['y', 'yes']:
+            settings_data['watchlist_toggle'] = True
+            prompt_user_for_number('\nHow many episodes do you want fetch (watchlist) (default: 1)? ', '1', 'watchlist_episodes')
+            prompt_user_for_number('\nDefine the watchlist cache expiry duration in hours (default: 6) ', '6', 'watchlist_cache_expiry')
+        else:
+            print("Invalid choice. Please enter either yes or no")
+
+    while 'days_to_monitor' not in settings_data:
+        prompt_user_for_number('\nMaximum age of the media onDeck to be fetched? (default: 99) ', '99', 'days_to_monitor')
+
+    user_os_choice = get_os_info()
+    if 'unraid' not in settings_data:
+        if user_os_choice.lower() == 'linux':
+            prompt_user_for_choice('\nAre you planning to run plexache.py on unraid?  [Y/n] ', 'yes', 'unraid')
+        else:
+            settings_data['unraid'] = False
 
     if 'cache_dir' not in settings_data:
         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'
@@ -210,10 +207,10 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
-        #if operating_system.lower() == 'linux':
-        #    cache_dir = convert_path_to_posix(cache_dir)
-        #else:
-        #    cache_dir = convert_path_to_nt(cache_dir)
+        if user_os_choice.lower() == 'linux':
+            cache_dir = convert_path_to_posix(cache_dir)
+        else:
+            cache_dir = convert_path_to_nt(cache_dir)
         settings_data['cache_dir'] = cache_dir
 
     if 'real_source' not in settings_data:
@@ -237,63 +234,27 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
-        #if operating_system.lower() == 'linux':
-        #    real_source = convert_path_to_posix(real_source)
-        #else:
-        #    real_source = convert_path_to_nt(real_source)
+        if user_os_choice.lower() == 'linux':
+            real_source = convert_path_to_posix(real_source)
+        else:
+            real_source = convert_path_to_nt(real_source)
         settings_data['real_source'] = real_source
         num_folders = len(plex_library_folders)
         # Ask the user to input a corresponding value for each element in plex_library_folders
         nas_library_folder = []
         for i in range(num_folders):
-            folder_name = input("\nEnter the corresponding NAS/Unraid library folder for the Plex mapped folder: (Default is the same as plex as shown) '%s' " % plex_library_folders[i]) or plex_library_folders[i]
-            #if operating_system.lower() == 'linux':
-            #    folder_name = convert_path_to_posix(folder_name)
-            #else:
-            #    folder_name = convert_path_to_nt(folder_name)
-            # Remove the real_source from folder_name if it's present
+            folder_name = input(f"\nEnter the corresponding NAS/Unraid library folder for the Plex mapped folder: (Default is the same as plex as shown) '{plex_library_folders[i]}' ") or plex_library_folders[i]
             folder_name = folder_name.replace(real_source, '')
-            # Remove leading/trailing slashes
             folder_name = folder_name.strip('/')
             nas_library_folder.append(folder_name)
         settings_data['nas_library_folders'] = nas_library_folder
 
-    while True:
-        if 'unraid' not in settings_data:
-            if operating_system.lower() == 'linux':
-                unraid = input('\nAre you planning to run plexache.py on unraid?  [Y/n] ')  or 'yes'
-                if unraid.lower() in ['y', 'yes']:
-                    settings_data['unraid'] = True
-                    break
-                elif unraid.lower() in ['n', 'no']:
-                    settings_data['unraid'] = False
-                    break
-                else:
-                    print("Invalid choice. Please enter either yes or no")
-            else:
-                settings_data['unraid'] = False
-                break
 
-    while True:
-        if 'watched_move' not in settings_data:
-            watched_move = input('\nDo you want to move watched media from the cache back to the array? [y/N] ')  or 'no'
-            if watched_move.lower() in ['y', 'yes']:
-                settings_data['watched_move'] = True
-                while True:
-                    if 'watched_cache_expiry' not in settings_data:
-                        hours = input('\nDefine the watched media cache expiry duration in hours (default: 24) ') or '24'
-                        if hours.isdigit():
-                            settings_data['watched_cache_expiry'] = int(hours)
-                            break
-                        else:
-                            print("User input is not a number")
-                break
-            elif watched_move.lower() in ['n', 'no']:
-                settings_data['watched_move'] = False
-                settings_data['watched_cache_expiry'] = 0
-                break
-            else:
-                print("Invalid choice. Please enter either yes or no")
+    if 'watched_move' not in settings_data:
+        if prompt_user_for_choice('\nDo you want to move watched media from the cache back to the array? [y/N] ', 'no', 'watched_move'):
+            prompt_user_for_number('\nDefine the watched media cache expiry duration in hours (default: 24) ', '24', 'watched_cache_expiry')
+        else:
+            settings_data['watched_cache_expiry'] = 0
 
     while True:
         if 'skip' not in settings_data:
@@ -307,87 +268,49 @@ def setup():
             else:
                 print("Invalid choice. Please enter either skip or exit")
 
-    while True:
-        if 'max_concurrent_moves_cache' not in settings_data:
-            number = input('\nHow many files do you want to move from the array to the cache at the same time? (default: 5) ') or '5'
-            if number.isdigit():
-                settings_data['max_concurrent_moves_cache'] = int(number)
-                break
-            else:
-                print("User input is not a number")
-        else:
-            break
+    if 'max_concurrent_moves_cache' not in settings_data:
+        prompt_user_for_number('\nHow many files do you want to move from the array to the cache at the same time? (default: 5) ', '5', 'max_concurrent_moves_cache')
 
-    while True:
-        if 'max_concurrent_moves_array' not in settings_data:
-            number = input('\nHow many files do you want to move from the cache to the array at the same time? (default: 2) ') or '2'
-            if number.isdigit():
-                settings_data['max_concurrent_moves_array'] = int(number)
-                break
-            else:
-                print("User input is not a number")
-        else:
-            break
+    if 'max_concurrent_moves_array' not in settings_data:
+        prompt_user_for_number('\nHow many files do you want to move from the cache to the array at the same time? (default: 2) ', '2', 'max_concurrent_moves_array')
 
-    while True:
-        if 'debug' not in settings_data:
-            debug = input('\nDo you want to debug the script? No data will actually be moved. [y/N] ') or 'no'
-            if debug.lower() in ['y', 'yes']:
-                settings_data['debug'] = True
-                break
-            elif debug.lower() in ['n', 'no']:
-                settings_data['debug'] = False
-                break
-            else:
-                print("Invalid choice. Please enter either yes or no")
+    if 'debug' not in settings_data:
+        prompt_user_for_choice('\nDo you want to debug the script? No data will actually be moved. [y/N] ', 'no', 'debug')
 
-    settings_data['firststart'] = False
-
-    # Save settings to file
-    with open(settings_filename, 'w') as f:
-        json.dump(settings_data, f, indent=4)
+    write_settings(settings_filename, settings_data)
 
     print("Setup complete! You can now run the plexcache.py script. \n")
     print("If you are happy with your current settings, you can discard this script entirely. \n")
     print("So Long, and Thanks for All the Fish!")
 
-if not os.path.exists(script_folder):
-    exit('Wrong path given, please edit the "script_folder" variable accordingly.')
+check_directory_exists(script_folder)
 
-while True:
-    if os.path.exists(settings_filename):
-        try:
-            with open(settings_filename, 'r') as f:
-                settings_data = json.load(f)
-                print(settings_filename)
-                print("Settings file exists, loading...!\n")
-                if settings_data.get('firststart'):
-                    print("First start unset or set to yes:\nPlease answer the following questions: \n")
-                    settings_data = {}
-                    setup()
-                else:
-                    print("Configuration exists, you can now run the plexcache.py script. \n")
-                    print("If you want to configure the settings again, manually change the variable firstart to off.")
-                    print("If instead you are happy with your current settings, you can discard this script entirely. \n")
-                    print("So Long, and Thanks for All the Fish!")
-                break
-        except json.decoder.JSONDecodeError:
-            # If the file exists but is not a valid JSON file, initialize an empty JSON object
+if os.path.exists(settings_filename):
+    try:
+        settings_data = read_existing_settings(settings_filename)
+        print("Settings file exists, loading...!\n")
+        
+        if settings_data.get('firststart'):
+            print("First start unset or set to yes:\nPlease answer the following questions: \n")
             settings_data = {}
-            print("Setting file initialized successfully!\n")
             setup()
-            break
-    else:
-        print("Settings file doesn't exist, please check the path:\n")
-        print(settings_filename)
-        creation = input("\nIf the name is correct, do you want to create the file? {Y/n] (default = yes) ") or 'yes'
-        if creation.lower() in ['y', 'yes']:
-            with open(settings_filename, 'w') as f:
-                settings_data = {}
-                print("Setting file created successfully!\n")
-                setup()
-            break 
-        elif creation.lower() in ['n', 'no']:
-            exit("Exiting as requested, setting file not created.")
         else:
-            print("Invalid choice. Please enter either yes or no")
+            print("Configuration exists and appears to be valid, you can now run the plexcache.py script.\n")
+            print("If you want to configure the settings again, manually change the variable 'firststart' to 'True' or delete the file entirely.\n")
+            print("If instead you are happy with your current settings, you can discard this script entirely.\n")
+            print("So Long, and Thanks for All the Fish!")
+    except json.decoder.JSONDecodeError:
+        print("Setting file initialized successfully!\n")
+        settings_data = {}
+        setup()
+else:
+    print(f"Settings file {settings_filename} doesn't exist, please check the path:\n")
+    creation = input("\nIf the path is correct, do you want to create the file? [Y/n] ") or 'yes'
+    if creation.lower() in ['y', 'yes']:
+        print("Setting file created successfully!\n")
+        settings_data = {}
+        setup()
+    elif creation.lower() in ['n', 'no']:
+        exit("Exiting as requested, setting file not created.")
+    else:
+        print("Invalid choice. Please enter either 'yes' or 'no'")
