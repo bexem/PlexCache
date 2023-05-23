@@ -284,15 +284,15 @@ def setup():
                 while True:
                     if 'watched_cache_expiry' not in settings_data:
                         hours = input('\nDefine the watched media cache expiry duration in hours (default: 24) ') or '24'
-                        if days.isdigit():
-                            settings_data['watchlist_cache_expiry'] = int(hours)
+                        if hours.isdigit():
+                            settings_data['watched_cache_expiry'] = int(hours)
                             break
                         else:
                             print("User input is not a number")
                 break
             elif watched_move.lower() in ['n', 'no']:
                 settings_data['watched_move'] = False
-                settings_data['watched_cache_expiry'] = int('0')
+                settings_data['watched_cache_expiry'] = 0
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
