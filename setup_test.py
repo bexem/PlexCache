@@ -87,10 +87,13 @@ def setup():
                         for location in library.locations:
                             # Convert the path format based on the user's OS
                             if operating_system.lower() == 'linux':
-                                plex_library_folder = convert_path_to_posix(location)
+                                #plex_library_folder = convert_path_to_posix(location)
+                                plex_library_folder = ("/" + os.path.basename(location) + "/")
                                 plex_library_folder = plex_library_folder.strip('/')
                             else:
                                 plex_library_folder = convert_path_to_nt(location)
+                                print(f"Plex library pre-windows conversion: {location}")
+                                print(f"Plex library pre-windows conversion: {plex_library_folder}")
                                 plex_library_folder = [directories[-1] for directories in [os.path.split(plex_library_folder)[0].split("\\")]][0]
                             #plex_library_folder = os.path.basename(plex_library_folder)  # Fix for plex_library_folders
                             plex_library_folders.append(plex_library_folder)
@@ -275,22 +278,21 @@ def setup():
 
     while True:
         if 'watched_move' not in settings_data:
-            watched_move = input('\nDo you want to move watched media from the cache back to the cache? [y/N] ')  or 'no'
-            settings_data['watched_cache_expiry'] = int('0')
+            watched_move = input('\nDo you want to move watched media from the cache back to the array? [y/N] ')  or 'no'
             if watched_move.lower() in ['y', 'yes']:
                 settings_data['watched_move'] = True
                 while True:
                     if 'watched_cache_expiry' not in settings_data:
                         hours = input('\nDefine the watched media cache expiry duration in hours (default: 24) ') or '24'
-                        if days.isdigit():
-                            settings_data['watchlist_cache_expiry'] = int(hours)
+                        if hours.isdigit():
+                            settings_data['watched_cache_expiry'] = int(hours)
                             break
                         else:
                             print("User input is not a number")
                 break
             elif watched_move.lower() in ['n', 'no']:
                 settings_data['watched_move'] = False
-                settings_data['watched_cache_expiry'] = int('0')
+                settings_data['watched_cache_expiry'] = 0
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
