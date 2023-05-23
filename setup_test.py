@@ -97,7 +97,7 @@ def setup():
                                 #print(f"Plex library post-windows conversion: {plex_library_folder}")
                                 #plex_library_folder = [directories[-1] for directories in [os.path.split(plex_library_folder)[0].split("\\")]][0]
                             #plex_library_folder = os.path.basename(plex_library_folder)  # Fix for plex_library_folders
-                            plex_library_folder = Path(location).name
+                            plex_library_folder = library.split('\\')[-1]
                             plex_library_folders.append(plex_library_folder)
                             settings_data['plex_library_folders'] = plex_library_folders
                     else:
