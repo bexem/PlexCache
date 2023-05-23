@@ -78,26 +78,22 @@ def setup():
                             location_index = 0 
                             location = library.locations[location_index]
                             if operating_system.lower() == 'linux':
-                                location = convert_path_to_posix(location)
-                                root_folder = ntpath.splitdrive(location)[0] + "/" 
+                                location_index = 0 
+                                location = library.locations[location_index]
+                                root_folder = (os.path.dirname(location) + "/")
                             else:
                                 location = convert_path_to_nt(location)
                                 root_folder = (ntpath.splitdrive(location)[0] + "\\")  # Fix for plex_source
                             print(f"\nPlex source path autoselected and set to: {root_folder}")
                             settings_data['plex_source'] = root_folder
                         for location in library.locations:
-                            # Convert the path format based on the user's OS
-                            #if operating_system.lower() == 'linux':
+                            if operating_system.lower() == 'linux':
                                 #plex_library_folder = convert_path_to_posix(location)
-                                #plex_library_folder = ("/" + os.path.basename(location) + "/")
-                                #plex_library_folder = plex_library_folder.strip('/')
-                            #else:
-                                #print(f"Plex library pre-windows conversion: {location}")
-                                #plex_library_folder = convert_path_to_nt(location)
-                                #print(f"Plex library post-windows conversion: {plex_library_folder}")
-                                #plex_library_folder = [directories[-1] for directories in [os.path.split(plex_library_folder)[0].split("\\")]][0]
-                            #plex_library_folder = os.path.basename(plex_library_folder)  # Fix for plex_library_folders
-                            plex_library_folder = library.split('\\')[-1]
+                                plex_library_folder = ("/" + os.path.basename(location) + "/")
+                                plex_library_folder = plex_library_folder.strip('/')
+                            else:
+                                plex_library_folder = os.path.basename(location)
+                                plex_library_folder = plex_library_folder.split('\\')[-1]
                             plex_library_folders.append(plex_library_folder)
                             settings_data['plex_library_folders'] = plex_library_folders
                     else:
