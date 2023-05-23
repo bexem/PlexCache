@@ -91,9 +91,9 @@ def setup():
                                 plex_library_folder = ("/" + os.path.basename(location) + "/")
                                 plex_library_folder = plex_library_folder.strip('/')
                             else:
-                                plex_library_folder = convert_path_to_nt(location)
                                 print(f"Plex library pre-windows conversion: {location}")
-                                print(f"Plex library pre-windows conversion: {plex_library_folder}")
+                                plex_library_folder = convert_path_to_nt(location)
+                                print(f"Plex library post-windows conversion: {plex_library_folder}")
                                 plex_library_folder = [directories[-1] for directories in [os.path.split(plex_library_folder)[0].split("\\")]][0]
                             #plex_library_folder = os.path.basename(plex_library_folder)  # Fix for plex_library_folders
                             plex_library_folders.append(plex_library_folder)
