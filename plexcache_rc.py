@@ -11,7 +11,7 @@ script_folder="/mnt/user/system/PlexCache/"
 settings_filename = os.path.join(script_folder, "settings_rc.json")
 watchlist_cache_file = Path(os.path.join(script_folder, "watchlist_cache.json"))
 watched_cache_file = Path(os.path.join(script_folder, "watched_cache.json"))
-log_file_pattern = "plexcache_script_*.log"
+log_file_pattern = "plexcache_rc_script_*.log"
 max_log_files = 5
 
 # Check if the script_folder exist, if not check for writing permissions, if okay, it will then create the folder
