@@ -4,7 +4,7 @@ from plexapi.exceptions import BadRequest
 
 # The script will create/edit the file in the same folder the script is located, but you can change that
 script_folder="."
-settings_filename = os.path.join(script_folder, "settings.json")
+settings_filename = os.path.join(script_folder, "settings_rc.json")
         
 # Function to check for a valid plex url
 def is_valid_plex_url(url):

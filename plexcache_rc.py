@@ -8,7 +8,7 @@ from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
 
 script_folder="/mnt/user/system/PlexCache/"
-settings_filename = os.path.join(script_folder, "settings.json")
+settings_filename = os.path.join(script_folder, "settings_rc.json")
 watchlist_cache_file = Path(os.path.join(script_folder, "watchlist_cache.json"))
 watched_cache_file = Path(os.path.join(script_folder, "watched_cache.json"))
 log_file_pattern = "plexcache_script_*.log"
