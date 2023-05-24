@@ -80,7 +80,7 @@ try:
     plex_source = add_trailing_slashes(settings_data['plex_source'])
     cache_dir = remove_trailing_slashes(settings_data['cache_dir'])
     real_source = remove_trailing_slashes(settings_data['real_source'])
-    unraid = settings_data['unraid']
+    #unraid = settings_data['unraid']
     nas_library_folders = remove_all_slashes(settings_data['nas_library_folders'])
     plex_library_folders = remove_all_slashes(settings_data['plex_library_folders'])
     watched_move = settings_data['watched_move']
@@ -138,11 +138,17 @@ if sessions:
 def check_os():
     if platform.system() == "Linux":
         os_linux = True
+        unraid_path = "/mnt/user0/"
+        if os.path.exists(unraid_path):
+            unraid = True
+        else:
+            unraid = False
     else:
         os_linux = False
-    return os_linux
+        unraid = False
+    return unraid, os_linux
 
-os_linux = check_os()
+unraid, os_linux = check_os()
 
 # Check if debug mode is active
 if debug:
