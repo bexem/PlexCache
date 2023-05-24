@@ -1,4 +1,4 @@
-import os, json, logging, glob, subprocess, socket, platform, shutil
+import os, json, logging, glob, subprocess, socket, platform, shutil, ntpath, posixpath
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -112,19 +112,20 @@ if sessions:
 
 def check_unraid():
     if platform.system() == "Linux":
+        os_linux = True
         with open("/etc/issue") as file:
             contents = file.read()
             if "Unraid" in contents:
                 unraid = True
-                return unraid
             else:
                 unraid = False
-                return unraid
     else:
         unraid = False
-        return unraid
+        os_linux = False
 
-unraid = check_unraid()
+    return unraid, os_linux
+
+unraid, os_linux = check_unraid()
 
 # Check if debug mode is active
 if debug:
@@ -308,36 +309,36 @@ def load_watched_media_from_cache(cache_file):
             return set(json.load(f))
     return set()
 
-# Convert windows path to a compatible format
 def convert_path(file_path, plex_source, real_source):
-    # Check if path is in Windows format
-    if "\\" in file_path or ":" in file_path:
-        # Normalize path converting backslashes to slashes
-        file_path = os.path.normpath(file_path)
-        # Check if there is a drive letter present
-        if ':' in file_path:
-            # Split on ':' to remove the drive letter
-            file_path = file_path.split(":", 1)[1]
-        # Remove leading slash if present
-        if file_path.startswith('/'):
-            file_path = file_path[1:]
-    # If plex_source is present in the path, replace it with the real_source_path
-    if plex_source in file_path:
+    def convert_path_to_posix(path):
+        path = path.replace(ntpath.sep, posixpath.sep)
+        return posixpath.normpath(path)
+
+    def convert_path_to_nt(path):
+        path = path.replace(posixpath.sep, ntpath.sep)
+        return ntpath.normpath(path)
+    
+    # Normalize paths converting backslashes to slashes
+    if os_linux:
+        file_path = convert_path_to_posix(file_path)
+        plex_source = convert_path_to_posix(plex_source)
+    else:
+        file_path = convert_path_to_nt(file_path)
+        plex_source = convert_path_to_nt(plex_source)
+
+    # If plex_source is present in the path, replace it with the real_source
+    if file_path.startswith(plex_source):
         file_path = file_path.replace(plex_source, real_source, 1)
+
     return file_path
 
-# Function to change the paths to the correct ones
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
     print("Editing file paths...")
     logging.info("Editing file paths...")
     if files is None:
         return []
-    # Only process files with plex_source
     files = [file_path for file_path in files if file_path.startswith(plex_source)]
     for i, file_path in enumerate(files):
-        print("Converting file paths...")
-        if debug:
-            logging.info(f"Pre-Conversion file path {file_path}")
         file_path = convert_path(file_path, plex_source, real_source)
         for j, folder in enumerate(plex_library_folders): # Determine which library folder is in the file path
             if folder in file_path:
@@ -353,25 +354,25 @@ def filter_files(files, destination, real_source, cache_dir, fileToCache):
     logging.info(f"Filtering media files {destination}...")
     if fileToCache is None:
         fileToCache = []
+
     processed_files = set()
     media_to = []
+
     for file in files:
         if file in processed_files:
             continue
+
         processed_files.add(file)
         cache_path, cache_file_name = get_cache_paths(file, real_source, cache_dir)
         log_file_info(file, cache_path, cache_file_name)
+
         if destination == 'array' and should_add_to_array(file, cache_file_name, fileToCache):
             media_to.append(file)
         elif destination == 'cache' and should_add_to_cache(cache_file_name):
             media_to.append(file)
+
     log_files(media_to, calledby="Filtered media")
     return media_to or []
-
-def get_cache_paths(file, real_source, cache_dir):
-    cache_path = os.path.dirname(file).replace(real_source, cache_dir, 1)
-    cache_file_name = os.path.join(cache_path, os.path.basename(file))
-    return cache_path, cache_file_name
 
 def should_add_to_array(file, cache_file_name, fileToCache):
     if file in fileToCache:
@@ -507,6 +508,11 @@ def get_paths(file_to_move, real_source, cache_dir, unraid):
         user_path = user_path.replace("/mnt/user/", "/mnt/user0/", 1)
     user_file_name = os.path.join(user_path, os.path.basename(file_to_move))
     return user_path, cache_path, cache_file_name, user_file_name
+
+def get_cache_paths(file, real_source, cache_dir):
+    cache_path = os.path.dirname(file).replace(real_source, cache_dir, 1)
+    cache_file_name = os.path.join(cache_path, os.path.basename(file))
+    return cache_path, cache_file_name
 
 # Function to get the move command for the given file
 def get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path):

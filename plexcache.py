@@ -321,7 +321,6 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
 def filter_files(files, destination, real_source, cache_dir, fileToCache):
     print(f"Filtering media files for {destination}...")
     logging.info(f"Filtering media files {destination}...")
-
     if fileToCache is None:
         fileToCache = []
 
