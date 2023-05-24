@@ -180,11 +180,6 @@ def setup():
         prompt_user_for_number('\nMaximum age of the media onDeck to be fetched? (default: 99) ', '99', 'days_to_monitor')
 
     user_os_choice = get_os_info()
-    if 'unraid' not in settings_data:
-        if user_os_choice.lower() == 'linux':
-            prompt_user_for_choice('\nAre you planning to run plexache.py on unraid?  [Y/n] ', 'yes', 'unraid')
-        else:
-            settings_data['unraid'] = False
 
     if 'cache_dir' not in settings_data:
         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'
