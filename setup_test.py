@@ -1,10 +1,10 @@
-import json, os, requests, ntpath, posixpath, platform
+import json, os, requests, ntpath, posixpath
 from plexapi.server import PlexServer
 from plexapi.exceptions import BadRequest
 
 # The script will create/edit the file in the same folder the script is located, but you can change that
 script_folder="."
-settings_filename = os.path.join(script_folder, "settings_test.json")
+settings_filename = os.path.join(script_folder, "settings.json")
         
 # Function to check for a valid plex url
 def is_valid_plex_url(url):
@@ -37,15 +37,6 @@ def convert_path_to_nt(path):
     path = path.replace(posixpath.sep, ntpath.sep)
     return ntpath.normpath(path)
 
-def get_os_info():
-    os_type = platform.system()
-    print(f"The script is currently running on a {os_type} system.")
-    user_os_choice = ""
-    while user_os_choice.lower() not in ['windows', 'linux']:
-        user_os_choice = input("\nOn which Operative System is the Plex server running?\n"
-                                "Please enter: 'Windows' or 'Linux': ")
-    return user_os_choice
-
 def prompt_user_for_number(prompt_message, default_value, data_key, data_type=int):
     while True:
         user_input = input(prompt_message) or default_value
@@ -54,18 +45,6 @@ def prompt_user_for_number(prompt_message, default_value, data_key, data_type=in
             break
         else:
             print("User input is not a number")
-
-def prompt_user_for_choice(prompt_message, default_value, data_key):
-    while 'unraid' not in settings_data:
-        user_input = input(prompt_message) or default_value
-        if user_input.lower() in ['y', 'yes']:
-            settings_data[data_key] = True
-            break
-        elif user_input.lower() in ['n', 'no']:
-            settings_data[data_key] = False
-            break
-        else:
-            print("Invalid choice. Please enter either yes or no")
 
 # Ask user for input for missing settings
 def setup():
@@ -107,15 +86,15 @@ def setup():
                             if operating_system.lower() == 'linux':
                                 location_index = 0 
                                 location = library.locations[location_index]
-                                root_folder = (os.path.dirname(location) + "/")
+                                root_folder = (os.path.dirname(location))
                             else:
                                 location = convert_path_to_nt(location)
-                                root_folder = (ntpath.splitdrive(location)[0] + "\\")  # Fix for plex_source
+                                root_folder = (ntpath.splitdrive(location)[0])  # Fix for plex_source
                             print(f"\nPlex source path autoselected and set to: {root_folder}")
                             settings_data['plex_source'] = root_folder
                         for location in library.locations:
                             if operating_system.lower() == 'linux':
-                                plex_library_folder = ("/" + os.path.basename(location) + "/")
+                                plex_library_folder = ("/" + os.path.basename(location))
                                 plex_library_folder = plex_library_folder.strip('/')
                             else:
                                 plex_library_folder = os.path.basename(location)
@@ -178,13 +157,6 @@ def setup():
     while 'days_to_monitor' not in settings_data:
         prompt_user_for_number('\nMaximum age of the media onDeck to be fetched? (default: 99) ', '99', 'days_to_monitor')
 
-    user_os_choice = get_os_info()
-    #if 'unraid' not in settings_data:
-    #    if user_os_choice.lower() == 'linux':
-    #        prompt_user_for_choice('\nAre you planning to run plexache.py on unraid?  [Y/n] ', 'yes', 'unraid')
-    #    else:
-    #        settings_data['unraid'] = False
-
     if 'cache_dir' not in settings_data:
         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache") ').replace('"', '').replace("'", '') or '/mnt/cache'
         while True:
@@ -206,10 +178,6 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
-        if user_os_choice.lower() == 'linux':
-            cache_dir = convert_path_to_posix(cache_dir)
-        else:
-            cache_dir = convert_path_to_nt(cache_dir)
         settings_data['cache_dir'] = cache_dir
 
     if 'real_source' not in settings_data:
@@ -233,10 +201,6 @@ def setup():
                 break
             else:
                 print("Invalid choice. Please enter either yes or no")
-        if user_os_choice.lower() == 'linux':
-            real_source = convert_path_to_posix(real_source)
-        else:
-            real_source = convert_path_to_nt(real_source)
         settings_data['real_source'] = real_source
         num_folders = len(plex_library_folders)
         # Ask the user to input a corresponding value for each element in plex_library_folders
@@ -280,7 +244,7 @@ def setup():
     while 'debug' not in settings_data:
         debug = input('\nDo you want to debug the script? No data will actually be moved. [y/N] ') or 'no'
         if debug.lower() in ['n', 'no']:
-            debug['debug'] = False
+            settings_data['debug'] = False
         elif debug.lower() in ['y', 'yes']:
             settings_data['debug'] = True
         else:
