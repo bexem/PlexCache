@@ -1,5 +1,4 @@
 import json, os, requests, ntpath, posixpath, platform
-from pathlib import Path
 from plexapi.server import PlexServer
 from plexapi.exceptions import BadRequest
 
@@ -32,11 +31,11 @@ def write_settings(filename, data):
 
 def convert_path_to_posix(path):
     path = path.replace(ntpath.sep, posixpath.sep)
-    return posixpath.normpath(path) + ("/" if not path.endswith("/") else "")
+    return posixpath.normpath(path)
 
 def convert_path_to_nt(path):
     path = path.replace(posixpath.sep, ntpath.sep)
-    return ntpath.normpath(path) + ("\\" if not path.endswith("\\") else "")
+    return ntpath.normpath(path)
 
 def get_os_info():
     os_type = platform.system()
@@ -180,6 +179,11 @@ def setup():
         prompt_user_for_number('\nMaximum age of the media onDeck to be fetched? (default: 99) ', '99', 'days_to_monitor')
 
     user_os_choice = get_os_info()
+    if 'unraid' not in settings_data:
+        if user_os_choice.lower() == 'linux':
+            prompt_user_for_choice('\nAre you planning to run plexache.py on unraid?  [Y/n] ', 'yes', 'unraid')
+        else:
+            settings_data['unraid'] = False
 
     if 'cache_dir' not in settings_data:
         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'

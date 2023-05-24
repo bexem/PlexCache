@@ -42,6 +42,21 @@ if len(existing_log_files) >= max_log_files:
     for i in range(len(existing_log_files) - max_log_files + 1):
         os.remove(existing_log_files[i])
 
+def remove_trailing_slashes(value):
+    if isinstance(value, str):
+        return value.rstrip('/\\')
+    return value
+
+def add_trailing_slashes(value):
+    if not value.startswith("/"):
+        value = "/" + value
+    if not value.endswith("/"):
+        value = value + "/"
+    return value
+
+def remove_all_slashes(value_list):
+    return [value.strip('/\\') for value in value_list]
+
 # Check if the settings file exists
 if os.path.exists(settings_filename):
     # Loading the settings file
@@ -62,11 +77,12 @@ try:
     watchlist_toggle = settings_data['watchlist_toggle']
     watchlist_episodes = settings_data['watchlist_episodes']
     days_to_monitor = settings_data['days_to_monitor']
-    cache_dir = settings_data['cache_dir']
-    plex_source = settings_data['plex_source']
-    real_source = settings_data['real_source']
-    nas_library_folders = settings_data['nas_library_folders']
-    plex_library_folders = settings_data['plex_library_folders']
+    plex_source = add_trailing_slashes(settings_data['plex_source'])
+    cache_dir = remove_trailing_slashes(settings_data['cache_dir'])
+    real_source = remove_trailing_slashes(settings_data['real_source'])
+    unraid = settings_data['unraid']
+    nas_library_folders = remove_all_slashes(settings_data['nas_library_folders'])
+    plex_library_folders = remove_all_slashes(settings_data['plex_library_folders'])
     watched_move = settings_data['watched_move']
     watchlist_cache_expiry = settings_data['watchlist_cache_expiry']
     watched_cache_expiry = settings_data['watched_cache_expiry']
@@ -77,6 +93,15 @@ try:
 except KeyError as e:
     logging.error(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
     exit(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
+
+# Save the updated settings data back to the file
+with open(settings_filename, 'w') as f:
+    settings_data['cache_dir'] = cache_dir
+    settings_data['real_source'] = real_source
+    settings_data['plex_source'] = plex_source
+    settings_data['nas_library_folders'] = nas_library_folders
+    settings_data['plex_library_folders'] = plex_library_folders
+    json.dump(settings_data, f, indent=4)
 
 # Initialising necessary arrays
 processed_files = []
@@ -110,22 +135,14 @@ if sessions:
             media_path = media_item.media[0].parts[0].file
             files_to_skip.append(media_path)
 
-def check_unraid():
+def check_os():
     if platform.system() == "Linux":
         os_linux = True
-        with open("/etc/issue") as file:
-            contents = file.read()
-            if "Unraid" in contents:
-                unraid = True
-            else:
-                unraid = False
     else:
-        unraid = False
         os_linux = False
+    return os_linux
 
-    return unraid, os_linux
-
-unraid, os_linux = check_unraid()
+os_linux = check_os()
 
 # Check if debug mode is active
 if debug:
@@ -392,12 +409,15 @@ def get_media_subtitles(media_files, files_to_skip=None):
         files_to_skip = set()
     processed_files = set()
     all_media_files = media_files.copy()
+    previous_directory_path = None  # Variable to store the previously logged directory path
     for file in media_files:
         if file in files_to_skip or file in processed_files:
             continue
         processed_files.add(file)
         directory_path = os.path.dirname(file)
-        log_directory_path(directory_path)
+        if directory_path != previous_directory_path:
+            log_directory_path(directory_path)
+            previous_directory_path = directory_path  # Update the previous directory path
         if os.path.exists(directory_path):
             subtitle_files = find_subtitle_files(directory_path, file)
             all_media_files.extend(subtitle_files)
@@ -564,7 +584,7 @@ if watchlist_toggle:
     current_watchlist_set = set()
     if is_connected():
         # To fetch the watchlist media internet is required due to a plexapi limitation
-        if (not watchlist_cache_file.exists()) or (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) > timedelta(hours=watchlist_cache_expiry)):
+        if (not watchlist_cache_file.exists())or (debug) or (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) > timedelta(hours=watchlist_cache_expiry)):
             print("Fetching watchlist media...")
             logging.info("Fetching watchlist media...")
             fetched_watchlist = fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle=False, skip_users=None)
@@ -614,7 +634,7 @@ if watched_move:
     watched_media_set = load_watched_media_from_cache(watched_cache_file)
     current_media_set = set()
 
-    if (not watched_cache_file.exists()) or (datetime.now() - datetime.fromtimestamp(watched_cache_file.stat().st_mtime) > timedelta(hours=watched_cache_expiry)):
+    if (not watched_cache_file.exists()) or (debug) or (datetime.now() - datetime.fromtimestamp(watched_cache_file.stat().st_mtime) > timedelta(hours=watched_cache_expiry)):
         print("Fetching watched media...")
         logging.info("Fetching watched media...")
         fetched_media = get_watched_media(plex, valid_sections, user=None)
