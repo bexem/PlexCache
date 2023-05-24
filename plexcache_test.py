@@ -44,7 +44,10 @@ if len(existing_log_files) >= max_log_files:
 
 def remove_trailing_slashes(value):
     if isinstance(value, str):
-        return value.rstrip('/\\')
+        if ':' in value and value.rstrip('/\\') == '':
+            return value.rstrip('/') + "\\"
+        else:
+            return value.rstrip('/\\')
     return value
 
 def add_trailing_slashes(value):
