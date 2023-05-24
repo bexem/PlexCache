@@ -277,8 +277,14 @@ def setup():
     if 'max_concurrent_moves_array' not in settings_data:
         prompt_user_for_number('\nHow many files do you want to move from the cache to the array at the same time? (default: 2) ', '2', 'max_concurrent_moves_array')
 
-    if 'debug' not in settings_data:
-        prompt_user_for_choice('\nDo you want to debug the script? No data will actually be moved. [y/N] ', 'no', 'debug')
+    while 'debug' not in settings_data:
+        debug = input('\nDo you want to debug the script? No data will actually be moved. [y/N] ') or 'no'
+        if debug.lower() in ['n', 'no']:
+            debug['debug'] = False
+        elif debug.lower() in ['y', 'yes']:
+            settings_data['debug'] = True
+        else:
+            print("Invalid choice. Please enter either yes or no")
 
     write_settings(settings_filename, settings_data)
 
