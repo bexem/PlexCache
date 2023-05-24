@@ -186,7 +186,7 @@ def setup():
     #        settings_data['unraid'] = False
 
     if 'cache_dir' not in settings_data:
-        cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'
+        cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache") ').replace('"', '').replace("'", '') or '/mnt/cache'
         while True:
             test_path = input('\nDo you want to test the given path? [y/N]  ') or 'no'
             if test_path.lower() in ['y', 'yes']:
@@ -197,7 +197,7 @@ def setup():
                     print('The path appears to be invalid.')
                     edit_path = input('\nDo you want to edit the path? [y/N]  ') or 'no'
                     if edit_path.lower() in ['y', 'yes']:
-                        cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache/") ').replace('"', '').replace("'", '') or '/mnt/cache/'
+                        cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache") ').replace('"', '').replace("'", '') or '/mnt/cache'
                     elif edit_path.lower() in ['n', 'no']:
                         break
                     else:
@@ -213,7 +213,7 @@ def setup():
         settings_data['cache_dir'] = cache_dir
 
     if 'real_source' not in settings_data:
-        real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user/") ').replace('"', '').replace("'", '') or '/mnt/user/'
+        real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user") ').replace('"', '').replace("'", '') or '/mnt/user'
         while True:
             test_path = input('\nDo you want to test the given path? [y/N]  ') or 'no'
             if test_path.lower() in ['y', 'yes']:
@@ -224,7 +224,7 @@ def setup():
                     print('The path appears to be invalid.')
                     edit_path = input('\nDo you want to edit the path? [y/N]  ') or 'no'
                     if edit_path.lower() in ['y', 'yes']:
-                        real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user/") ').replace('"', '').replace("'", '') or '/mnt/user/'
+                        real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user") ').replace('"', '').replace("'", '') or '/mnt/user'
                     elif edit_path.lower() in ['n', 'no']:
                         break
                     else:
@@ -248,12 +248,16 @@ def setup():
             nas_library_folder.append(folder_name)
         settings_data['nas_library_folders'] = nas_library_folder
 
-
-    if 'watched_move' not in settings_data:
-        if prompt_user_for_choice('\nDo you want to move watched media from the cache back to the array? [y/N] ', 'no', 'watched_move'):
+    while 'watched_move' not in settings_data:
+        watched_move = input('\nDo you want to move watched media from the cache back to the array? [y/N] ') or 'no'
+        if watched_move.lower() in ['n', 'no']:
+            settings_data['watched_move'] = False
+            settings_data['watched_cache_expiry'] = 1
+        elif watched_move.lower() in ['y', 'yes']:
+            settings_data['watched_move'] = True
             prompt_user_for_number('\nDefine the watched media cache expiry duration in hours (default: 24) ', '24', 'watched_cache_expiry')
         else:
-            settings_data['watched_cache_expiry'] = 0
+            print("Invalid choice. Please enter either yes or no")
 
     while True:
         if 'skip' not in settings_data:
