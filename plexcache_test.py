@@ -48,10 +48,12 @@ def remove_trailing_slashes(value):
     return value
 
 def add_trailing_slashes(value):
-    if not value.startswith("/"):
-        value = "/" + value
-    if not value.endswith("/"):
-        value = value + "/"
+    # check if the value contains a ':', which indicates it's a Windows-style path
+    if ':' not in value:
+        if not value.startswith("/"):
+            value = "/" + value
+        if not value.endswith("/"):
+            value = value + "/"
     return value
 
 def remove_all_slashes(value_list):
