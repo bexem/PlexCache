@@ -1,4 +1,4 @@
-import os, json, logging, glob, subprocess, socket, platform, shutil, ntpath, posixpath
+import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -8,10 +8,10 @@ from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
 
 script_folder="/mnt/user/system/PlexCache/"
-settings_filename = os.path.join(script_folder, "settings_test.json")
+settings_filename = os.path.join(script_folder, "settings.json")
 watchlist_cache_file = Path(os.path.join(script_folder, "watchlist_cache.json"))
 watched_cache_file = Path(os.path.join(script_folder, "watched_cache.json"))
-log_file_pattern = "plexcache_test_script_*.log"
+log_file_pattern = "plexcache_script_*.log"
 max_log_files = 5
 
 # Check if the script_folder exist, if not check for writing permissions, if okay, it will then create the folder
@@ -41,6 +41,77 @@ if len(existing_log_files) >= max_log_files:
     existing_log_files.sort(key=os.path.getctime)
     for i in range(len(existing_log_files) - max_log_files + 1):
         os.remove(existing_log_files[i])
+
+def check_os():
+    os_name = platform.system()
+    is_unraid = False
+    is_linux = False
+
+    if os_name == 'Linux':
+        is_linux = True
+        unraid_path = "/mnt/user0/"
+        if os.path.exists(unraid_path):
+            is_unraid = True
+            logging.info('Script is currently running on Unraid.')
+        else:
+            logging.info('Script is currently running on Linux.')
+            
+    elif os_name == 'Darwin':
+        logging.info('Script is currently running on macOS.')
+        
+    elif os_name == 'Windows':
+        logging.info('Script is currently running on Windows.')
+        
+    else:
+        logging.error('This is an unrecognized system. Exiting...')
+        exit("Error: Unrecognized system.")
+
+    return is_unraid, is_linux
+
+unraid, os_linux = check_os()
+
+def remove_trailing_slashes(value):
+    # If the value is a string, remove trailing slashes
+    if isinstance(value, str):
+        return value.rstrip('/\\')
+    return value
+
+# Thank you to teshiburu2020 for making the script more compatible
+
+def convert_path_to_nt(value, drive_letter):
+    # If path starts with a slash, prepend drive letter
+    if value.startswith('/'):
+        value = drive_letter.rstrip(':\\') + ':' + value
+    # Replace slashes with backslashes
+    value = value.replace(posixpath.sep, ntpath.sep)
+    return ntpath.normpath(value)
+
+def convert_path_to_posix(value):
+    # Save the drive letter if exists
+    drive_letter = re.search(r'^[A-Za-z]:', value)
+    if drive_letter:
+        drive_letter = drive_letter.group() + '\\'
+    else:
+        drive_letter = None
+    # Remove drive letter if exists
+    value = re.sub(r'^[A-Za-z]:', '', value)
+    # Replace backslashes with slashes
+    value = value.replace(ntpath.sep, posixpath.sep)
+    return posixpath.normpath(value), drive_letter
+
+def convert_path(value, key, settings_data, drive_letter=None):
+    # Normalize paths converting backslashes to slashes
+    if os_linux:
+        value, drive_letter = convert_path_to_posix(value)
+        if drive_letter:
+            settings_data[f"{key}_drive"] = drive_letter
+    else:
+        if drive_letter is None:
+            logging.warning(f"Drive letter for {value} not found, using default one 'C:\\'")
+            drive_letter = 'C:\\'
+        value = convert_path_to_nt(value, drive_letter)
+        
+    return value
 
 def remove_trailing_slashes(value):
     if isinstance(value, str):
@@ -82,9 +153,22 @@ try:
     watchlist_toggle = settings_data['watchlist_toggle']
     watchlist_episodes = settings_data['watchlist_episodes']
     days_to_monitor = settings_data['days_to_monitor']
-    plex_source = add_trailing_slashes(settings_data['plex_source'])
+
+    cache_dir_drive = settings_data.get('cache_dir_drive')
+    real_source_drive = settings_data.get('real_source_drive')
+    plex_source_drive = settings_data.get('plex_source_drive')
+
     cache_dir = remove_trailing_slashes(settings_data['cache_dir'])
+    cache_dir = convert_path(cache_dir, 'cache_dir', settings_data, cache_dir_drive)
+    cache_dir = add_trailing_slashes(settings_data['cache_dir'])
+
     real_source = remove_trailing_slashes(settings_data['real_source'])
+    real_source = convert_path(real_source, 'real_source', settings_data, real_source_drive)
+    real_source = add_trailing_slashes(settings_data['real_source'])
+
+
+    plex_source = add_trailing_slashes(settings_data['plex_source'])
+
     #unraid = settings_data['unraid']
     nas_library_folders = remove_all_slashes(settings_data['nas_library_folders'])
     plex_library_folders = remove_all_slashes(settings_data['plex_library_folders'])
@@ -139,21 +223,6 @@ if sessions:
             logging.info(f"Active session detected, skipping: {media_title}")
             media_path = media_item.media[0].parts[0].file
             files_to_skip.append(media_path)
-
-def check_os():
-    if platform.system() == "Linux":
-        os_linux = True
-        unraid_path = "/mnt/user0/"
-        if os.path.exists(unraid_path):
-            unraid = True
-        else:
-            unraid = False
-    else:
-        os_linux = False
-        unraid = False
-    return unraid, os_linux
-
-unraid, os_linux = check_os()
 
 # Check if debug mode is active
 if debug:
@@ -337,29 +406,6 @@ def load_watched_media_from_cache(cache_file):
             return set(json.load(f))
     return set()
 
-def convert_path(file_path, plex_source, real_source):
-    def convert_path_to_posix(path):
-        path = path.replace(ntpath.sep, posixpath.sep)
-        return posixpath.normpath(path)
-
-    def convert_path_to_nt(path):
-        path = path.replace(posixpath.sep, ntpath.sep)
-        return ntpath.normpath(path)
-    
-    # Normalize paths converting backslashes to slashes
-    if os_linux:
-        file_path = convert_path_to_posix(file_path)
-        plex_source = convert_path_to_posix(plex_source)
-    else:
-        file_path = convert_path_to_nt(file_path)
-        plex_source = convert_path_to_nt(plex_source)
-
-    # If plex_source is present in the path, replace it with the real_source
-    if file_path.startswith(plex_source):
-        file_path = file_path.replace(plex_source, real_source, 1)
-
-    return file_path
-
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
     print("Editing file paths...")
     logging.info("Editing file paths...")
@@ -367,7 +413,7 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
         return []
     files = [file_path for file_path in files if file_path.startswith(plex_source)]
     for i, file_path in enumerate(files):
-        file_path = convert_path(file_path, plex_source, real_source)
+        file_path = file_path.replace(plex_source, real_source, 1) # Replace the plex_source with the real_source, thanks to /u/planesrfun
         for j, folder in enumerate(plex_library_folders): # Determine which library folder is in the file path
             if folder in file_path:
                 file_path = file_path.replace(folder, nas_library_folders[j]) # Replace the plex library folder with the corresponding NAS library folder             
