@@ -18,26 +18,32 @@ def is_valid_plex_url(url):
     print (response.headers)
     return False
 
+# Check if the given directory exists
 def check_directory_exists(folder):
     if not os.path.exists(folder):
         raise FileNotFoundError(f'Wrong path given, please edit the "{folder}" variable accordingly.')
-    
+
+# Read the settings containet in the settings file
 def read_existing_settings(filename):
     with open(filename, 'r') as f:
         return json.load(f)
 
+# Write the given settings to the settings file
 def write_settings(filename, data):
     with open(filename, 'w') as f:
         json.dump(data, f, indent=4)
 
+# Convert the given path to linux/posix format 
 def convert_path_to_posix(path):
     path = path.replace(ntpath.sep, posixpath.sep)
     return posixpath.normpath(path)
 
+# Conver the given path to a windows compatible format
 def convert_path_to_nt(path):
     path = path.replace(posixpath.sep, ntpath.sep)
     return ntpath.normpath(path)
 
+# Function to ask the user for a number and it then saves it as a setting
 def prompt_user_for_number(prompt_message, default_value, data_key, data_type=int):
     while True:
         user_input = input(prompt_message) or default_value
@@ -51,14 +57,15 @@ def prompt_user_for_number(prompt_message, default_value, data_key, data_type=in
 def setup():
     settings_data['firststart'] = False
 
+    # Check if the given url is a valid plex server address
     def is_valid_plex_url(url):
-
         try:
             result = urlparse(url)
             return all([result.scheme, result.netloc])
         except ValueError:
             return False
-
+        
+    # Asks the user for the plex server address
     while 'PLEX_URL' not in settings_data:
         url = input('\nEnter your plex server address (Example: http://localhost:32400 or https://plex.mydomain.ext): ')
         if not url.strip():  # Check if url is not empty
@@ -73,6 +80,8 @@ def setup():
         except requests.exceptions.RequestException:
             print("URL is not valid.")
 
+    # Ask the user for the plex token, it then tests it
+    # If successfull it will ask for libraries 
     while 'PLEX_TOKEN' not in settings_data:
         token = input('\nEnter your plex token: ')
         if not token.strip():  # Check if token is not empty
@@ -130,12 +139,15 @@ def setup():
         except TypeError:
             print('An unexpected error occurred.')
 
+    # Asks for how many episodes 
     while 'number_episodes' not in settings_data:
         prompt_user_for_number('\nHow many episodes (digit) do you want fetch (onDeck)? (default: 5) ', '5', 'number_episodes')
 
+    # Asks for how many days  
     while 'days_to_monitor' not in settings_data:
         prompt_user_for_number('\nMaximum age of the media onDeck to be fetched? (default: 99) ', '99', 'days_to_monitor')
 
+    # Asks for the watchlist media and if yes it will then ask for an expiry date for the cache file
     while 'watchlist_toggle' not in settings_data:
         watchlist = input('\nDo you want to fetch your watchlist media? [y/N] ') or 'no'
         if watchlist.lower() in ['n', 'no']:
@@ -149,6 +161,7 @@ def setup():
         else:
             print("Invalid choice. Please enter either yes or no")
 
+    # Enable all other users and if to skip specific user for the watchlist and/or ondeck media
     while 'users_toggle' not in settings_data:
         skip_users = []
         skip_ondeck = []
@@ -192,6 +205,7 @@ def setup():
         settings_data['skip_ondeck'] = skip_ondeck
         settings_data['skip_watchlist'] = skip_watchlist
 
+    # If enable the script will move the files back from the cache to the array
     while 'watched_move' not in settings_data:
         watched_move = input('\nDo you want to move watched media from the cache back to the array? [y/N] ') or 'no'
         if watched_move.lower() in ['n', 'no']:
@@ -201,6 +215,7 @@ def setup():
         else:
             print("Invalid choice. Please enter either yes or no")
 
+    # Asks for the cache/fast drives path and asks if you want to test the given path
     if 'cache_dir' not in settings_data:
         cache_dir = input('\nInsert the path of your cache drive: (default: "/mnt/cache") ').replace('"', '').replace("'", '') or '/mnt/cache'
         while True:
@@ -224,6 +239,7 @@ def setup():
                 print("Invalid choice. Please enter either yes or no")
         settings_data['cache_dir'] = cache_dir
 
+    # Asks for the array/slow drives path and asks if you want to test the given path
     if 'real_source' not in settings_data:
         real_source = input('\nInsert the path where your media folders are located?: (default: "/mnt/user") ').replace('"', '').replace("'", '') or '/mnt/user'
         while True:
@@ -256,6 +272,7 @@ def setup():
             nas_library_folder.append(folder_name)
         settings_data['nas_library_folders'] = nas_library_folder
 
+    # Asks if to stop the script or continue if active session
     while True:
         if 'skip' not in settings_data:
             session = input('\nIf there is an active session in plex (someone is playing a media) do you want to exit the script or just skip the playing media? [SKIP/exit] ') or 'skip'
@@ -268,12 +285,15 @@ def setup():
             else:
                 print("Invalid choice. Please enter either skip or exit")
 
+    # Concurrent moving process
     if 'max_concurrent_moves_cache' not in settings_data:
         prompt_user_for_number('\nHow many files do you want to move from the array to the cache at the same time? (default: 5) ', '5', 'max_concurrent_moves_cache')
 
+    # Concurrent moving process
     if 'max_concurrent_moves_array' not in settings_data:
         prompt_user_for_number('\nHow many files do you want to move from the cache to the array at the same time? (default: 2) ', '2', 'max_concurrent_moves_array')
 
+    # Activates the debug mode
     while 'debug' not in settings_data:
         debug = input('\nDo you want to debug the script? No data will actually be moved. [y/N] ') or 'no'
         if debug.lower() in ['n', 'no']:
@@ -292,6 +312,7 @@ def setup():
 
 check_directory_exists(script_folder)
 
+# Checks if the file exist, if not it will check if the path is accessible, if so it will ask to create the file and then initialise the file.
 if os.path.exists(settings_filename):
     try:
         settings_data = read_existing_settings(settings_filename)
