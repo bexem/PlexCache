@@ -1,4 +1,4 @@
-import os, json, logging, glob, subprocess, socket
+import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -7,40 +7,141 @@ from plexapi.video import Episode
 from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
 
+print("*** PlexCache ***")
+
 script_folder="/mnt/user/system/PlexCache/"
-settings_filename = os.path.join(script_folder, "settings.json")
-watchlist_cache_file = Path(os.path.join(script_folder, "watchlist_cache.json"))
-watched_cache_file = Path(os.path.join(script_folder, "watched_cache.json"))
-log_file_pattern = "plexcache_script_*.log"
+logs_folder = script_folder # Change this if you want your logs in a different folder.
+settings_filename = os.path.join(script_folder, "plexcache_settings.json")
+watchlist_cache_file = Path(os.path.join(script_folder, "plexcache_watchlist_cache.json"))
+watched_cache_file = Path(os.path.join(script_folder, "plexcache_watched_cache.json"))
+log_file_pattern = "plexcache_log_*.log"
 max_log_files = 5
 
-# Check if the script_folder exist, if not check for writing permissions, if okay, it will then create the folder
+# Check if the script_folder exists, if not check for writing permissions, if okay, it will then create the folder
 if not os.path.exists(script_folder):
     if not os.access(script_folder, os.W_OK):
         exit("Script folder not writable, please fix the variable accordingly.")
     else:
         os.makedirs(script_folder)
-# As the script_folder exist, check for writing permissions
-if not os.access(script_folder, os.W_OK):
-    exit("Script folder not writable, please fix the variable accordingly.")
+
+# Check if the logs_folder is different from the script_folder
+if not logs_folder == script_folder:
+    if not os.path.exists(logs_folder):
+        if not os.access(logs_folder, os.W_OK):
+            exit("Logs folder not writable, please fix the variable accordingly.")
+        else:
+            os.makedirs(logs_folder)
 
 current_time = datetime.now().strftime("%Y%m%d_%H%M")
-log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}{current_time}.log")
+log_file = os.path.join(logs_folder, f"{log_file_pattern[:-5]}{current_time}.log")
 logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Create or update the symbolic link to the latest log file
-latest_log_file = os.path.join(script_folder, f"{log_file_pattern[:-5]}latest.log")
+latest_log_file = os.path.join(logs_folder, f"{log_file_pattern[:-5]}latest.log")
 if os.path.exists(latest_log_file):
     os.remove(latest_log_file)  # Remove the existing link if it exists
 
 os.symlink(log_file, latest_log_file)  # Create a new link to the latest log file
 
 # Check if the number of log files exceeds the limit and remove the oldest log file(s)
-existing_log_files = glob.glob(os.path.join(script_folder, log_file_pattern))
+existing_log_files = glob.glob(os.path.join(logs_folder, log_file_pattern))
 if len(existing_log_files) >= max_log_files: 
     existing_log_files.sort(key=os.path.getctime)
     for i in range(len(existing_log_files) - max_log_files + 1):
         os.remove(existing_log_files[i])
+
+def check_os():
+    os_name = platform.system()
+    if os_name == 'Linux':
+        is_linux = True
+        unraid_path = "/mnt/user0/"
+        if os.path.exists(unraid_path):
+            is_unraid = True
+            logging.info('Script is currently running on Unraid.')
+        else:
+            is_unraid = False
+            logging.info('Script is currently running on Linux.')
+    elif os_name == 'Darwin':
+        is_linux = True
+        is_unraid = False
+        logging.info('Script is currently running on macOS.')
+        logging.info('The script will use posix file formats.')
+        logging.info('The script has not been tested on macOS')
+    elif os_name == 'Windows':
+        is_linux = False
+        is_unraid = False
+        logging.info('Script is currently running on Windows.')
+    else:
+        logging.error('This is an unrecognized system. Exiting...')
+        is_linux = True
+        is_unraid = False
+        exit("Error: Unrecognized system.") # Comment this line if you want to continue.
+    return is_unraid, is_linux
+
+unraid, os_linux = check_os()
+
+def remove_trailing_slashes(value):
+    if isinstance(value, str):
+        return value.rstrip('/\\')
+    return value
+
+# Thank you to /u/teshiburu2020 for making the script more compatible
+
+def convert_path_to_nt(value, drive_letter):
+    if value.startswith('/'):
+        value = drive_letter.rstrip(':\\') + ':' + value
+    # Replace slashes with backslashes
+    value = value.replace(posixpath.sep, ntpath.sep)
+    return ntpath.normpath(value)
+
+def convert_path_to_posix(value):
+    # Save the drive letter if exists
+    drive_letter = re.search(r'^[A-Za-z]:', value)
+    if drive_letter:
+        drive_letter = drive_letter.group() + '\\'
+    else:
+        drive_letter = None
+    # Remove drive letter if exists
+    value = re.sub(r'^[A-Za-z]:', '', value)
+    # Replace backslashes with slashes
+    value = value.replace(ntpath.sep, posixpath.sep)
+    return posixpath.normpath(value), drive_letter
+
+def convert_path(value, key, settings_data, drive_letter=None):
+    # Normalize paths converting backslashes to slashes
+    if os_linux:
+        value, drive_letter = convert_path_to_posix(value)
+        if drive_letter:
+            settings_data[f"{key}_drive"] = drive_letter
+    else:
+        if drive_letter is None:
+            if debug:
+                print(f"\nDrive letter for {value} not found, using default one 'C:\\'")
+            logging.warning(f"Drive letter for {value} not found, using default one 'C:\\'")
+            drive_letter = 'C:\\'
+        value = convert_path_to_nt(value, drive_letter)
+        
+    return value
+
+def remove_trailing_slashes(value):
+    if isinstance(value, str):
+        if ':' in value and value.rstrip('/\\') == '':
+            return value.rstrip('/') + "\\"
+        else:
+            return value.rstrip('/\\')
+    return value
+
+def add_trailing_slashes(value):
+    # check if the value contains a ':', which indicates it's a Windows-style path
+    if ':' not in value:
+        if not value.startswith("/"):
+            value = "/" + value
+        if not value.endswith("/"):
+            value = value + "/"
+    return value
+
+def remove_all_slashes(value_list):
+    return [value.strip('/\\') for value in value_list]
 
 # Check if the settings file exists
 if os.path.exists(settings_filename):
@@ -53,31 +154,70 @@ else:
 
 # Reads the settings file and all the settings
 try:
+    firststart = settings_data['firststart']
+    if firststart:
+        debug = True
+        print("\nFirst start is set to true, setting debug mode temporaly to true.")
+        logging.warning("First start is set to true, setting debug mode temporaly to true.")
+    else:
+        debug = settings_data['debug']
+    
     PLEX_URL = settings_data['PLEX_URL']
     PLEX_TOKEN = settings_data['PLEX_TOKEN']
+
     number_episodes = settings_data['number_episodes']
     valid_sections = settings_data['valid_sections']
+    days_to_monitor = settings_data['days_to_monitor']
+
     users_toggle = settings_data['users_toggle']
     skip_users = settings_data['skip_users']
+
+    # Checking and assigning skip_ondeck and skip_watchlist values
+    skip_ondeck = settings_data.get('skip_ondeck', skip_users)
+    skip_watchlist = settings_data.get('skip_watchlist', skip_users)
+
     watchlist_toggle = settings_data['watchlist_toggle']
     watchlist_episodes = settings_data['watchlist_episodes']
-    days_to_monitor = settings_data['days_to_monitor']
-    cache_dir = settings_data['cache_dir']
-    plex_source = settings_data['plex_source']
-    real_source = settings_data['real_source']
-    nas_library_folders = settings_data['nas_library_folders']
-    plex_library_folders = settings_data['plex_library_folders']
-    unraid = settings_data['unraid']
-    watched_move = settings_data['watched_move']
     watchlist_cache_expiry = settings_data['watchlist_cache_expiry']
-    watched_cache_expiry = settings_data['watched_cache_expiry']
+
+    watched_move = settings_data['watched_move']
+
+    plex_source_drive = settings_data.get('plex_source_drive')
+    plex_source = add_trailing_slashes(settings_data['plex_source'])
+    
+    cache_dir_drive = settings_data.get('cache_dir_drive')
+    cache_dir = remove_trailing_slashes(settings_data['cache_dir'])
+    cache_dir = convert_path(cache_dir, 'cache_dir', settings_data, cache_dir_drive)
+    cache_dir = add_trailing_slashes(settings_data['cache_dir'])
+
+    real_source_drive = settings_data.get('real_source_drive')
+    real_source = remove_trailing_slashes(settings_data['real_source'])
+    real_source = convert_path(real_source, 'real_source', settings_data, real_source_drive)
+    real_source = add_trailing_slashes(settings_data['real_source'])
+
+    nas_library_folders = remove_all_slashes(settings_data['nas_library_folders'])
+    plex_library_folders = remove_all_slashes(settings_data['plex_library_folders'])
+
     skip = settings_data['skip']
-    debug = settings_data['debug']
+
     max_concurrent_moves_array = settings_data['max_concurrent_moves_array']
     max_concurrent_moves_cache = settings_data['max_concurrent_moves_cache']
+
+    # unraid = settings_data['unraid'] # Disabled because the script is now checking if running on unraid rather than using user input
 except KeyError as e:
     logging.error(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
     exit(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
+
+# Save the updated settings data back to the file
+with open(settings_filename, 'w') as f:
+    settings_data['cache_dir'] = cache_dir
+    settings_data['real_source'] = real_source
+    settings_data['plex_source'] = plex_source
+    settings_data['nas_library_folders'] = nas_library_folders
+    settings_data['plex_library_folders'] = plex_library_folders
+    settings_data['skip_ondeck'] = skip_ondeck
+    settings_data['skip_watchlist'] = skip_watchlist
+    json.dump(settings_data, f, indent=4)
 
 # Initialising necessary arrays
 processed_files = []
@@ -113,16 +253,21 @@ if sessions:
 
 # Check if debug mode is active
 if debug:
-    print("Debug mode is active, no file will be moved. Extra info available in the log file.")
+    print("\n***** DEBUG MODE *****")
+    print("\nDebug mode is active, no file will be moved.")
+    print("\nExtra info available in the log file.")
+    logging.info("***** DEBUG MODE *****")
     logging.info("Debug mode is active, no file will be moved.")
     # Extra debugging 
     logging.info("______________")
+    if unraid:
+        logging.info("Script is running on unraid.")
     logging.info(f"Real source: {real_source}")
     logging.info(f"Cache dir: {cache_dir}")
     logging.info(f"Plex source: {plex_source}")
     logging.info(f"NAS folders: ({nas_library_folders}")
     logging.info(f"Plex folders: {plex_library_folders}")
-    logging.info(f"Unraid: {unraid}")
+    logging.info("______________")
 
 # Function to print all files present in the currently in use array, only used if debug is on
 def log_files(files, calledby):
@@ -146,7 +291,7 @@ def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, 
     if not plex:
         return []
 
-    print(f"Fetching {username}'s onDeck media...")
+    print(f"\nFetching {username}'s onDeck media...")
     logging.info(f"Fetching {username}'s onDeck media...")
     
     on_deck_files = []
@@ -168,9 +313,9 @@ def get_plex_instance(plex, user):
         username = user.title
         try:
             return username, PlexServer(PLEX_URL, user.get_token(plex.machineIdentifier))
-        except Exception:
-            print(f"Error: Failed to Fetch {username} onDeck media")
-            logging.error(f"Error: Failed to Fetch {username} onDeck media")
+        except Exception as e:
+            print(f"\nError: Failed to Fetch {username} onDeck media. Error: {e}")
+            logging.error(f"Error: Failed to Fetch {username} onDeck media. Error: {e}")
             return None, None
     else:
         username = plex.myPlexAccount().title
@@ -210,10 +355,7 @@ def search_plex(plex, title):
     return results[0] if len(results) > 0 else None
 
 # Function to fetch watchlist media files for the main user
-def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle=False, skip_users=None):
-    if skip_users is None:
-        skip_users = []
-
+def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle, skip_watchlist):
     def get_watchlist(token, user=None):
         account = MyPlexAccount(token)
         if user:
@@ -223,7 +365,6 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
     def process_show(file, watchlist_episodes):
         episodes = file.episodes()
         count = 0
-
         if count <= watchlist_episodes:
             for episode in episodes[:watchlist_episodes]:
                 if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
@@ -235,14 +376,21 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
         yield file.media[0].parts[0].file
 
     users_to_fetch = [None]  # Start with main user (None)
+
     if users_toggle:
         users_to_fetch += plex.myPlexAccount().users()
 
     for user in users_to_fetch:
         current_username = plex.myPlexAccount().title if user is None else user.title
-        print(f"Fetching {current_username}'s watchlist media...")
+        
+        # Skip if user's token is in the skip_watchlist list
+        if user and user.get_token(plex.machineIdentifier) in skip_watchlist:
+            print(f"\nSkipping {current_username}'s onDeck media...")
+            logging.info(f"Skipping {current_username}'s onDeck media...")
+            continue
+        
+        print(f"\nFetching {current_username}'s watchlist media...")
         logging.info(f"Fetching {current_username}'s watchlist media...")
-
         watchlist = get_watchlist(PLEX_TOKEN, user)
         
         for item in watchlist:
@@ -254,19 +402,21 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
                     yield from process_movie(file)
 
 # Function to fetch watched media files
-def get_watched_media(plex, valid_sections, user=None):
+def get_watched_media(plex, valid_sections, last_updated, user=None):
     def fetch_user_watched_media(plex_instance, username):
-        print(f"Fetching {username}'s watched media...")
+        print(f"\nFetching {username}'s watched media...")
         logging.info(f"Fetching {username}'s watched media...")
 
         try:
             for section_id in valid_sections:
                 section = plex_instance.library.sectionByID(section_id)
                 for video in section.search(unwatched=False):
+                    if video.lastViewedAt and last_updated and video.lastViewedAt < datetime.fromtimestamp(last_updated):
+                        continue
                     yield from process_video(video)
-        except Exception:
-            print(f"Error: Failed to Fetch {username}'s watched media")
-            logging.info(f"Error: Failed to Fetch {username}'s watched media")
+        except Exception as e:
+            print(f"Error: Failed to Fetch {username}'s watched media. Exception: {e}")
+            logging.error(f"Error: Failed to Fetch {username}'s watched media. Exception: {e}")
 
     def process_video(video):
         if video.TYPE == 'show':
@@ -297,12 +447,16 @@ def get_watched_media(plex, valid_sections, user=None):
 def load_watched_media_from_cache(cache_file):
     if cache_file.exists():
         with cache_file.open('r') as f:
-            return set(json.load(f))
-    return set()
+            data = json.load(f)
+            if isinstance(data, dict):
+                return set(data.get('media', [])), data.get('timestamp')
+            elif isinstance(data, list):
+                # cache file contains just a list of media, without timestamp
+                return set(data), None
+    return set(), None
 
-# Function to change the paths to the correct ones
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
-    print("Editing file paths...")
+    print("\nEditing file paths...")
     logging.info("Editing file paths...")
     if files is None:
         return []
@@ -319,7 +473,7 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
 
 # Function to filter the files, based on the destination
 def filter_files(files, destination, real_source, cache_dir, fileToCache):
-    print(f"Filtering media files for {destination}...")
+    print(f"\nFiltering media files for {destination}...")
     logging.info(f"Filtering media files {destination}...")
     if fileToCache is None:
         fileToCache = []
@@ -343,11 +497,6 @@ def filter_files(files, destination, real_source, cache_dir, fileToCache):
     log_files(media_to, calledby="Filtered media")
     return media_to or []
 
-def get_cache_paths(file, real_source, cache_dir):
-    cache_path = os.path.dirname(file).replace(real_source, cache_dir, 1)
-    cache_file_name = os.path.join(cache_path, os.path.basename(file))
-    return cache_path, cache_file_name
-
 def should_add_to_array(file, cache_file_name, fileToCache):
     if file in fileToCache:
         if debug:
@@ -360,28 +509,28 @@ def should_add_to_cache(cache_file_name):
 
 # Function to fetch the subtitles
 def get_media_subtitles(media_files, files_to_skip=None):
-    print("Fetching subtitles...")
+    print("\nFetching subtitles...")
     logging.info("Fetching subtitles...")
-    
     if files_to_skip is None:
         files_to_skip = set()
-    
     processed_files = set()
     all_media_files = media_files.copy()
+    previous_directory_path = None  # Variable to store the previously logged directory path
 
     for file in media_files:
         if file in files_to_skip or file in processed_files:
             continue
-
         processed_files.add(file)
         directory_path = os.path.dirname(file)
-        log_directory_path(directory_path)
-
+        if directory_path != previous_directory_path:
+            log_directory_path(directory_path)
+            previous_directory_path = directory_path  # Update the previous directory path
         if os.path.exists(directory_path):
             subtitle_files = find_subtitle_files(directory_path, file)
             all_media_files.extend(subtitle_files)
 
     log_files(all_media_files, calledby="Subtitles")
+
     return all_media_files or []
 
 def log_directory_path(directory_path):
@@ -391,13 +540,11 @@ def log_directory_path(directory_path):
 def find_subtitle_files(directory_path, file):
     file_name, file_ext = os.path.splitext(os.path.basename(file))
     files_in_dir = os.listdir(directory_path)
-
     subtitle_files = [
         os.path.join(directory_path, f)
         for f in files_in_dir
         if f.startswith(file_name) and f != file_name + file_ext
     ]
-
     return subtitle_files or []
 
 # Function to convert size to readable format
@@ -431,42 +578,46 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
     media_files_filtered = filter_files(media_files, destination, real_source, cache_dir, media_to_cache)
     total_size, total_size_unit = get_total_size_of_files(media_files_filtered)
     logging.info(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")
-
     if total_size > 0:
-        print(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")
+        print(f"\nTotal size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")
         free_space, free_space_unit = get_free_space(destination == 'cache' and cache_dir or real_source)
-        print(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")
+        print(f"\nFree space on the {destination}: {free_space:.2f} {free_space_unit}")
         logging.info(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")
-
         if total_size * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[total_size_unit]) > free_space * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[free_space_unit]):
             raise ValueError("Not enough space on destination drive.")
-
         logging.info(f"Moving media to {destination}...")
-        print(f"Moving media to {destination}...")
+        print(f"\nMoving media to {destination}...")
         move_media_files(media_files_filtered, real_source, cache_dir, unraid, debug, destination, files_to_skip)
     else:
-        print(f"Nothing to move to {destination}")
+        print(f"\nNothing to move to {destination}")
         logging.info(f"Nothing to move to {destination}")
 
 # Function to check if given path exists, is a directory and the script has writing permissions
 def check_path_exists(path):
+    if debug:
+        logging.info(f"Checking if {path} is accessible and its permissions...")
+        print(f"\nChecking if {path} is accessible and its permissions...")
     if not os.path.exists(path):
         logging.error(f"Path {path} does not exist.")
+        exit(f"Path {path} does not exist.")
     if not os.path.isdir(path):
         logging.error(f"Path {path} is not a directory.")
+        exit(f"Path {path} is not a directory.")
     if not os.access(path, os.W_OK):
         logging.error(f"Path {path} is not writable.")
+        exit(f"Path {path} is not writable.")
     
 def move_file(move_cmd):
-    logging.info(move_cmd)
-    result = subprocess.run(move_cmd, shell=True, stderr=subprocess.PIPE)
-    if result.returncode != 0:
-        logging.error(f"Error executing move command: Exit code: {result.returncode}")
-        logging.error(f"Error message: {result.stderr.decode('utf-8')}")
-    return result.returncode
+    try:
+        shutil.move(*move_cmd)
+        logging.info(f"Moved file from {move_cmd[0]} to {move_cmd[1]}")
+        return 0
+    except Exception as e:
+        logging.error(f"Error moving file: {str(e)}")
+        return 1
 
 def move_media_files(files, real_source, cache_dir, unraid, debug, destination, files_to_skip=None, max_concurrent_moves_array=1, max_concurrent_moves_cache=1):
-    print(f"Moving media files to {destination}...")
+    print(f"\nMoving media files to {destination}...")
     logging.info(f"Moving media files to {destination}...")
     if files_to_skip is None:
         files_to_skip = set()
@@ -476,15 +627,11 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
     for file_to_move in files:
         if file_to_move in files_to_skip or file_to_move in processed_files:
             continue
-
         processed_files.add(file_to_move)
-
         user_path, cache_path, cache_file_name, user_file_name = get_paths(file_to_move, real_source, cache_dir, unraid)
-
         move = get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path)
         if move is not None:
             move_commands.append(move)
-
     execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_concurrent_moves_cache, destination)
 
 # Function to get the paths of the user and cache directories
@@ -493,12 +640,15 @@ def get_paths(file_to_move, real_source, cache_dir, unraid):
     relative_path = os.path.relpath(user_path, real_source)
     cache_path = os.path.join(cache_dir, relative_path)
     cache_file_name = os.path.join(cache_path, os.path.basename(file_to_move))
-
     if unraid:
         user_path = user_path.replace("/mnt/user/", "/mnt/user0/", 1)
     user_file_name = os.path.join(user_path, os.path.basename(file_to_move))
-
     return user_path, cache_path, cache_file_name, user_file_name
+
+def get_cache_paths(file, real_source, cache_dir):
+    cache_path = os.path.dirname(file).replace(real_source, cache_dir, 1)
+    cache_file_name = os.path.join(cache_path, os.path.basename(file))
+    return cache_path, cache_file_name
 
 # Function to get the move command for the given file
 def get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path):
@@ -507,12 +657,12 @@ def get_move_command(destination, cache_file_name, user_path, user_file_name, ca
         if not os.path.exists(user_path): 
             os.makedirs(user_path)
         if os.path.isfile(cache_file_name):
-            move = f"mv -v \"{cache_file_name}\" \"{user_path}\""
+            move = (cache_file_name, user_path)
     if destination == 'cache':
         if not os.path.exists(cache_path):
             os.makedirs(cache_path)
         if not os.path.isfile(cache_file_name):
-            move = f"mv -v \"{user_file_name}\" \"{cache_path}\""
+            move = (user_file_name, cache_path)
     return move
 
 # Function to execute the given move commands
@@ -531,53 +681,43 @@ def execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_
 # Function to check if internet is available
 def is_connected():
     try:
-        # Attempt to connect to google's DNS server
         socket.gethostbyname("www.google.com")
         return True
     except socket.error:
         return False
 
-print("Initialising script...")
-logging.info("Initializing script...")
-print("Checking paths and permissions...")
-logging.info("Checking paths and permissions...")
 for path in [real_source, cache_dir]:
     check_path_exists(path)
 
-# Main user's watchlist
+# Watchlist
 if watchlist_toggle:
-    watchlist_media_set = load_watched_media_from_cache(watchlist_cache_file)
+    watchlist_media_set, last_updated = load_watched_media_from_cache(watchlist_cache_file)
     current_watchlist_set = set()
     if is_connected():
         # To fetch the watchlist media internet is required due to a plexapi limitation
-        if (not watchlist_cache_file.exists()) or (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) > timedelta(hours=watchlist_cache_expiry)):
-            print("Fetching watchlist media...")
+        if (not watchlist_cache_file.exists())or (debug) or (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) > timedelta(hours=watchlist_cache_expiry)):
+            print("\nFetching watchlist media...")
             logging.info("Fetching watchlist media...")
-            fetched_watchlist = fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle=False, skip_users=None)
-
+            fetched_watchlist = fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle=users_toggle, skip_watchlist=skip_watchlist)
             for file_path in fetched_watchlist:
                 current_watchlist_set.add(file_path)
                 if file_path not in watchlist_media_set:
                     media_to_cache.append(file_path)
-
             # Remove media that no longer exists in watchlist
             watchlist_media_set.intersection_update(current_watchlist_set)
-
             # Add new media to the watchlist media set
             watchlist_media_set.update(media_to_cache)
-
             with watchlist_cache_file.open('w') as f:
                 json.dump(list(watchlist_media_set), f)
-
         else:
-            print("Loading watchlist media from cache...")
+            print("\nLoading watchlist media from cache...")
             logging.info("Loading watchlist media from cache...")
             media_to_cache.extend(watchlist_media_set)
     else:
         # handle no internet connection scenario
-        print("Unable to connect to the internet, skipping fetching new watchlist media due to plexapi limitation.")
+        print("\nUnable to connect to the internet, skipping fetching new watchlist media due to plexapi limitation.")
         logging.warning("Unable to connect to the internet, skipping fetching new watchlist media due to plexapi limitation.")
-        print("Loading watchlist media from cache...")
+        print("\nLoading watchlist media from cache...")
         logging.info("Loading watchlist media from cache...")
         media_to_cache.extend(watchlist_media_set)
 
@@ -588,8 +728,8 @@ media_to_cache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor,
 if users_toggle:
     for user in plex.myPlexAccount().users():
         username = user.title
-        if user.get_token(plex.machineIdentifier) in skip_users:
-            print(f"Skipping {username}'s onDeck media...")
+        if user.get_token(plex.machineIdentifier) in skip_ondeck:
+            print(f"\nSkipping {username}'s onDeck media...")
             logging.info(f"Skipping {username}'s onDeck media...")
             continue
         media_to_cache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, user=user))
@@ -602,21 +742,18 @@ media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to
 
 # Watched media
 if watched_move:
-    watched_media_set = load_watched_media_from_cache(watched_cache_file)
+    watched_media_set, last_updated = load_watched_media_from_cache(watched_cache_file)
     current_media_set = set()
 
-    if (not watched_cache_file.exists()) or (datetime.now() - datetime.fromtimestamp(watched_cache_file.stat().st_mtime) > timedelta(hours=watched_cache_expiry)):
-        print("Fetching watched media...")
+    if not watched_cache_file.exists() or debug:
+        print("\nFetching watched media...")
         logging.info("Fetching watched media...")
-        fetched_media = get_watched_media(plex, valid_sections, user=None)
+        fetched_media = get_watched_media(plex, valid_sections, last_updated)
 
         for file_path in fetched_media:
             current_media_set.add(file_path)
             if file_path not in watched_media_set:
                 media_to_array.append(file_path)
-
-        # Remove media that no longer exists in Plex
-        watched_media_set.intersection_update(current_media_set)
 
         # Add new media to the watched media set
         watched_media_set.update(media_to_array)
@@ -625,18 +762,12 @@ if watched_move:
         media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
 
         with watched_cache_file.open('w') as f:
-            json.dump(list(watched_media_set), f)
+            json.dump({'media': list(watched_media_set), 'timestamp': datetime.now().timestamp()}, f)
 
     else:
-        print("Loading watched media from cache...")
+        print("\nLoading watched media from cache...")
         logging.info("Loading watched media from cache...")
         media_to_array.extend(watched_media_set)
-
-    try:
-        check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug, files_to_skip)
-    except Exception as e:
-        logging.error(f"Error checking free space and moving media files: {str(e)}")
-        exit(f"Error: {str(e)}")
 
 # Moving the files to the cache drive
 try:
@@ -645,5 +776,7 @@ except Exception as e:
     logging.error(f"Error checking free space and moving media files: {str(e)}")
     exit(f"Error: {str(e)}")
 
-print("Script executed\nThank you for using my script github.com/bexem/PlexCache")
-logging.info("Script executed\nThank you for using my script github.com/bexem/PlexCache")
+print("\nThank you for using bexem's script: \nhttps://github.com/bexem/PlexCache")
+logging.info("Thank you for using bexem's script: https://github.com/bexem/PlexCache")
+logging.info("Also special thanks to: \n - /u/teshiburu2020 \n - /u/planesrfun \n - /u/trevski13 \n - /u/extrobe \n - /u/dsaunier-sunlight")
+print("\n*** The End ***")
