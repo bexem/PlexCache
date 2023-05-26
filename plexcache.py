@@ -9,6 +9,8 @@ from plexapi.myplex import MyPlexAccount
 
 print("*** PlexCache ***")
 
+# Sets the folder path for the PlexCache script, the logs folder path, and the filenames for the settings file, watchlist cache file, watched cache file. 
+# Also defines the log file pattern and maximum number of log files to keep.
 script_folder="/mnt/user/system/PlexCache/"
 logs_folder = script_folder # Change this if you want your logs in a different folder.
 settings_filename = os.path.join(script_folder, "plexcache_settings.json")
@@ -32,6 +34,8 @@ if not logs_folder == script_folder:
         else:
             os.makedirs(logs_folder)
 
+# Creates a timestamped log file name using the current date and time. 
+# Initializes the logging module to write logs to the specified log file, overwriting the existing file.
 current_time = datetime.now().strftime("%Y%m%d_%H%M")
 log_file = os.path.join(logs_folder, f"{log_file_pattern[:-5]}{current_time}.log")
 logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -50,6 +54,7 @@ if len(existing_log_files) >= max_log_files:
     for i in range(len(existing_log_files) - max_log_files + 1):
         os.remove(existing_log_files[i])
 
+# Checks the operating system on which the script is running. Sets flags is_unraid and is_linux based on the detected operating system.
 def check_os():
     os_name = platform.system()
     if os_name == 'Linux':
@@ -80,13 +85,30 @@ def check_os():
 
 unraid, os_linux = check_os()
 
+# Remove "/" or "\" from a given path
 def remove_trailing_slashes(value):
     if isinstance(value, str):
-        return value.rstrip('/\\')
+        if ':' in value and value.rstrip('/\\') == '':
+            return value.rstrip('/') + "\\"
+        else:
+            return value.rstrip('/\\')
     return value
 
-# Thank you to /u/teshiburu2020 for making the script more compatible
+# Add "/" or "\" to a given path
+def add_trailing_slashes(value):
+    # check if the value contains a ':', which indicates it's a Windows-style path
+    if ':' not in value:
+        if not value.startswith("/"):
+            value = "/" + value
+        if not value.endswith("/"):
+            value = value + "/"
+    return value
 
+# Removed all "/" "\" from a given path
+def remove_all_slashes(value_list):
+    return [value.strip('/\\') for value in value_list]
+
+# Convert the given path to a windows compatible path
 def convert_path_to_nt(value, drive_letter):
     if value.startswith('/'):
         value = drive_letter.rstrip(':\\') + ':' + value
@@ -94,6 +116,8 @@ def convert_path_to_nt(value, drive_letter):
     value = value.replace(posixpath.sep, ntpath.sep)
     return ntpath.normpath(value)
 
+# Convert the given path to a linux/posix compatible path
+# If a drive letter is present, it will save it in the settings file.
 def convert_path_to_posix(value):
     # Save the drive letter if exists
     drive_letter = re.search(r'^[A-Za-z]:', value)
@@ -107,6 +131,8 @@ def convert_path_to_posix(value):
     value = value.replace(ntpath.sep, posixpath.sep)
     return posixpath.normpath(value), drive_letter
 
+# Convert path accordingly to the operative system the script is running
+# It assigns drive_letter = 'C:\\' if no drive was ever given/saved
 def convert_path(value, key, settings_data, drive_letter=None):
     # Normalize paths converting backslashes to slashes
     if os_linux:
@@ -123,25 +149,6 @@ def convert_path(value, key, settings_data, drive_letter=None):
         
     return value
 
-def remove_trailing_slashes(value):
-    if isinstance(value, str):
-        if ':' in value and value.rstrip('/\\') == '':
-            return value.rstrip('/') + "\\"
-        else:
-            return value.rstrip('/\\')
-    return value
-
-def add_trailing_slashes(value):
-    # check if the value contains a ':', which indicates it's a Windows-style path
-    if ':' not in value:
-        if not value.startswith("/"):
-            value = "/" + value
-        if not value.endswith("/"):
-            value = value + "/"
-    return value
-
-def remove_all_slashes(value_list):
-    return [value.strip('/\\') for value in value_list]
 
 # Check if the settings file exists
 if os.path.exists(settings_filename):
@@ -203,7 +210,8 @@ try:
     max_concurrent_moves_array = settings_data['max_concurrent_moves_array']
     max_concurrent_moves_cache = settings_data['max_concurrent_moves_cache']
 
-    # unraid = settings_data['unraid'] # Disabled because the script is now checking if running on unraid rather than using user input
+    # Disabled because the script is now checking if running on unraid rather than using user input
+    # unraid = settings_data['unraid'] 
 except KeyError as e:
     logging.error(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
     exit(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
@@ -284,6 +292,11 @@ def log_file_info(file, cache_path, cache_file_name):
         logging.info(f"File: {file}")
         logging.info(f"Cache_path: {cache_path}")
         logging.info(f"Cache_file_name: {cache_file_name}")
+
+# Log about given directory path
+def log_directory_path(directory_path):
+    if debug:
+        logging.info(f"Directory path: {directory_path}")
 
 # Function to fetch onDeck media files
 def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, user=None):
@@ -455,6 +468,7 @@ def load_watched_media_from_cache(cache_file):
                 return set(data), None
     return set(), None
 
+# Modify the files paths from the paths given by plex to link actual files on the running system
 def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas_library_folders):
     print("\nEditing file paths...")
     logging.info("Editing file paths...")
@@ -497,6 +511,7 @@ def filter_files(files, destination, real_source, cache_dir, fileToCache):
     log_files(media_to, calledby="Filtered media")
     return media_to or []
 
+# Check if the files is already present in the array
 def should_add_to_array(file, cache_file_name, fileToCache):
     if file in fileToCache:
         if debug:
@@ -504,6 +519,7 @@ def should_add_to_array(file, cache_file_name, fileToCache):
         return False
     return os.path.isfile(cache_file_name)
 
+# Check if the file is already present in the cache
 def should_add_to_cache(cache_file_name):
     return not os.path.isfile(cache_file_name)
 
@@ -533,10 +549,7 @@ def get_media_subtitles(media_files, files_to_skip=None):
 
     return all_media_files or []
 
-def log_directory_path(directory_path):
-    if debug:
-        logging.info(f"Directory path: {directory_path}")
-
+# Find the subtitles for the given files
 def find_subtitle_files(directory_path, file):
     file_name, file_ext = os.path.splitext(os.path.basename(file))
     files_in_dir = os.listdir(directory_path)
@@ -574,6 +587,7 @@ def get_total_size_of_files(files):
     total_size_bytes = sum(os.path.getsize(file) for file in files)
     return convert_bytes_to_readable_size(total_size_bytes)
 
+# Check for free space before executing moving process
 def check_free_space_and_move_files(media_files, destination, real_source, cache_dir, unraid, debug, files_to_skip=None):
     media_files_filtered = filter_files(media_files, destination, real_source, cache_dir, media_to_cache)
     total_size, total_size_unit = get_total_size_of_files(media_files_filtered)
@@ -606,7 +620,8 @@ def check_path_exists(path):
     if not os.access(path, os.W_OK):
         logging.error(f"Path {path} is not writable.")
         exit(f"Path {path} is not writable.")
-    
+
+ # Function to move files, it executes the given move command   
 def move_file(move_cmd):
     try:
         shutil.move(*move_cmd)
@@ -616,6 +631,7 @@ def move_file(move_cmd):
         logging.error(f"Error moving file: {str(e)}")
         return 1
 
+# Created the move command that gets executed from the function above
 def move_media_files(files, real_source, cache_dir, unraid, debug, destination, files_to_skip=None, max_concurrent_moves_array=1, max_concurrent_moves_cache=1):
     print(f"\nMoving media files to {destination}...")
     logging.info(f"Moving media files to {destination}...")
@@ -645,6 +661,7 @@ def get_paths(file_to_move, real_source, cache_dir, unraid):
     user_file_name = os.path.join(user_path, os.path.basename(file_to_move))
     return user_path, cache_path, cache_file_name, user_file_name
 
+# Locates the given file in the cache
 def get_cache_paths(file, real_source, cache_dir):
     cache_path = os.path.dirname(file).replace(real_source, cache_dir, 1)
     cache_file_name = os.path.join(cache_path, os.path.basename(file))
@@ -686,10 +703,13 @@ def is_connected():
     except socket.error:
         return False
 
+# Checks if the paths exists and are accessible
 for path in [real_source, cache_dir]:
     check_path_exists(path)
 
-# Watchlist
+# Watchlist logic:
+# It will check if there is internet connection as plexapi requires to use a method which uses their server rather than plex
+# If internet is not available or the cache is within the expiry date, it will use the cached file.
 if watchlist_toggle:
     watchlist_media_set, last_updated = load_watched_media_from_cache(watchlist_cache_file)
     current_watchlist_set = set()
@@ -740,7 +760,7 @@ media_to_cache = modify_file_paths(media_to_cache, plex_source, real_source, ple
 # Fetches subtitles for the above fetched media
 media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to_skip))
 
-# Watched media
+# Watched media logic
 if watched_move:
     watched_media_set, last_updated = load_watched_media_from_cache(watched_cache_file)
     current_media_set = set()
