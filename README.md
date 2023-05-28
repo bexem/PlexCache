@@ -8,8 +8,6 @@ PlexCache efficiently transfers media from the On Deck/Watchlist to the cache an
 
 ## Features
 
-The script can:
-
 - Fetch a specified number of episodes from the "onDeck" for the main user and other users.
 - Skip fetching onDeck media for specified users.
 - Fetch a specified number of episodes from the "watchlist" for the main user and other users.
@@ -26,11 +24,11 @@ The script can:
 - Exit the script if any active session or skip the currently playing media.
 - Find your missing unicorn.
 
-## Installation & Setup
+## Setup
 
-Please check out our [Wiki section](https://github.com/bexem/PlexCache/wiki) for the step-by-step guide on how to install and setup PlexCache on your system. 
+Please check out our [Wiki section](https://github.com/bexem/PlexCache/wiki) for the step-by-step guide on how to setup PlexCache on your system. 
 
-## Support
+## Notes
 
 This script should be compatible with other systems, especially Linux-based ones, although I have primarily tested it on Unraid with plex as docker container running on Unraid. Work has been done to improve Windows interoperability.
 While I cannot  support every case, it's worth checking the GitHub issues to see if your specific case has already been discussed.
