@@ -1,5 +1,5 @@
 import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
 from plexapi.server import PlexServer
@@ -298,7 +298,18 @@ def log_directory_path(directory_path):
     if debug:
         logging.info(f"Directory path: {directory_path}")
 
-# Function to fetch onDeck media files
+# Main function to fetch onDeck media files
+def fetch_on_deck_media_main(plex, valid_sections, days_to_monitor, number_episodes, users_toggle, skip_ondeck):
+    users_to_fetch = [None]  # Start with main user (None)
+
+    if users_toggle:
+        users_to_fetch += plex.myPlexAccount().users()
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(fetch_on_deck_media, plex, valid_sections, days_to_monitor, number_episodes, user) for user in users_to_fetch}
+        for future in as_completed(futures):
+            yield from future.result()
+
 def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, user=None):
     username, plex = get_plex_instance(plex, user)
     if not plex:
@@ -388,38 +399,45 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
     def process_movie(file):
         yield file.media[0].parts[0].file
 
-    users_to_fetch = [None]  # Start with main user (None)
-
-    if users_toggle:
-        users_to_fetch += plex.myPlexAccount().users()
-
-    for user in users_to_fetch:
+    def fetch_user_watchlist(user):
         current_username = plex.myPlexAccount().title if user is None else user.title
         
         # Skip if user's token is in the skip_watchlist list
         if user and user.get_token(plex.machineIdentifier) in skip_watchlist:
             print(f"\nSkipping {current_username}'s onDeck media...")
             logging.info(f"Skipping {current_username}'s onDeck media...")
-            continue
+            return []
         
         print(f"\nFetching {current_username}'s watchlist media...")
         logging.info(f"Fetching {current_username}'s watchlist media...")
         watchlist = get_watchlist(PLEX_TOKEN, user)
+        results = []
         
         for item in watchlist:
             file = search_plex(plex, item.title)
             if file and file.librarySectionID in valid_sections:
                 if file.TYPE == 'show':
-                    yield from process_show(file, watchlist_episodes)
+                    results.extend(process_show(file, watchlist_episodes))
                 else:
-                    yield from process_movie(file)
+                    results.extend(process_movie(file))
+        return results
+
+    users_to_fetch = [None]  # Start with main user (None)
+
+    if users_toggle:
+        users_to_fetch += plex.myPlexAccount().users()
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(fetch_user_watchlist, user) for user in users_to_fetch}
+        for future in as_completed(futures):
+            yield from future.result()
 
 # Function to fetch watched media files
 def get_watched_media(plex, valid_sections, last_updated, user=None):
+
     def fetch_user_watched_media(plex_instance, username):
         print(f"\nFetching {username}'s watched media...")
         logging.info(f"Fetching {username}'s watched media...")
-
         try:
             for section_id in valid_sections:
                 section = plex_instance.library.sectionByID(section_id)
@@ -446,15 +464,22 @@ def get_watched_media(plex, valid_sections, last_updated, user=None):
                     file_path = part.file
                     yield file_path
 
-    main_username = plex.myPlexAccount().title
-    yield from fetch_user_watched_media(plex, main_username)
+    # Create a ThreadPoolExecutor
+    with ThreadPoolExecutor() as executor:
+        main_username = plex.myPlexAccount().title
+        # Start a new task for the main user
+        futures = [executor.submit(fetch_user_watched_media, plex, main_username)]
+        if users_toggle:
+            for user in plex.myPlexAccount().users():
+                username = user.title
+                user_token = user.get_token(plex.machineIdentifier)
+                user_plex = PlexServer(PLEX_URL, user_token)
 
-    if users_toggle:
-        for user in plex.myPlexAccount().users():
-            username = user.title
-            user_token = user.get_token(plex.machineIdentifier)
-            user_plex = PlexServer(PLEX_URL, user_token)
-            yield from fetch_user_watched_media(user_plex, username)
+                # Start a new task for each other user
+                futures.append(executor.submit(fetch_user_watched_media, user_plex, username))
+        # As each task completes, yield the results
+        for future in as_completed(futures):
+            yield from future.result()
 
 # Function to load watched media from cache
 def load_watched_media_from_cache(cache_file):
@@ -741,18 +766,8 @@ if watchlist_toggle:
         logging.info("Loading watchlist media from cache...")
         media_to_cache.extend(watchlist_media_set)
 
-# Main user's onDeck media
-media_to_cache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes))
-
-# Other users onDeck media
-if users_toggle:
-    for user in plex.myPlexAccount().users():
-        username = user.title
-        if user.get_token(plex.machineIdentifier) in skip_ondeck:
-            print(f"\nSkipping {username}'s onDeck media...")
-            logging.info(f"Skipping {username}'s onDeck media...")
-            continue
-        media_to_cache.extend(fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, user=user))
+# Fetch OnDeck Media
+media_to_cache.extend(fetch_on_deck_media_main(plex, valid_sections, days_to_monitor, number_episodes, users_toggle, skip_ondeck))
 
 # Edit file paths for the above fetched media
 media_to_cache = modify_file_paths(media_to_cache, plex_source, real_source, plex_library_folders, nas_library_folders)
@@ -765,29 +780,29 @@ if watched_move:
     watched_media_set, last_updated = load_watched_media_from_cache(watched_cache_file)
     current_media_set = set()
 
-    if not watched_cache_file.exists() or debug:
-        print("\nFetching watched media...")
-        logging.info("Fetching watched media...")
-        fetched_media = get_watched_media(plex, valid_sections, last_updated)
+    print("\nFetching watched media...")
+    logging.info("Fetching watched media...")
+    fetched_media = get_watched_media(plex, valid_sections, last_updated)
 
-        for file_path in fetched_media:
-            current_media_set.add(file_path)
-            if file_path not in watched_media_set:
-                media_to_array.append(file_path)
+    for file_path in fetched_media:
+        current_media_set.add(file_path)
+        if file_path not in watched_media_set:
+            media_to_array.append(file_path)
 
-        # Add new media to the watched media set
-        watched_media_set.update(media_to_array)
+    # Add new media to the watched media set
+    watched_media_set.update(media_to_array)
 
-        media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
-        media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
+    media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
+    media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
 
-        with watched_cache_file.open('w') as f:
-            json.dump({'media': list(watched_media_set), 'timestamp': datetime.now().timestamp()}, f)
+    with watched_cache_file.open('w') as f:
+        json.dump({'media': list(watched_media_set), 'timestamp': datetime.now().timestamp()}, f)
 
-    else:
-        print("\nLoading watched media from cache...")
-        logging.info("Loading watched media from cache...")
-        media_to_array.extend(watched_media_set)
+    try:
+        check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug, files_to_skip)
+    except Exception as e:
+        logging.error(f"Error checking free space and moving media files: {str(e)}")
+        exit(f"Error: {str(e)}")
 
 # Moving the files to the cache drive
 try:
