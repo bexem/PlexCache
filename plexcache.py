@@ -780,23 +780,29 @@ if watched_move:
     watched_media_set, last_updated = load_watched_media_from_cache(watched_cache_file)
     current_media_set = set()
 
-    print("\nFetching watched media...")
-    logging.info("Fetching watched media...")
-    fetched_media = get_watched_media(plex, valid_sections, last_updated)
+    if not watched_cache_file.exists() or debug:
+        print("\nFetching watched media...")
+        logging.info("Fetching watched media...")
+        fetched_media = get_watched_media(plex, valid_sections, last_updated)
 
-    for file_path in fetched_media:
-        current_media_set.add(file_path)
-        if file_path not in watched_media_set:
-            media_to_array.append(file_path)
+        for file_path in fetched_media:
+            current_media_set.add(file_path)
+            if file_path not in watched_media_set:
+                media_to_array.append(file_path)
 
-    # Add new media to the watched media set
-    watched_media_set.update(media_to_array)
+        # Add new media to the watched media set
+        watched_media_set.update(media_to_array)
 
-    media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
-    media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
+        media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
+        media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
 
-    with watched_cache_file.open('w') as f:
-        json.dump({'media': list(watched_media_set), 'timestamp': datetime.now().timestamp()}, f)
+        with watched_cache_file.open('w') as f:
+            json.dump({'media': list(watched_media_set), 'timestamp': datetime.now().timestamp()}, f)
+
+    else:
+        print("\nLoading watched media from cache...")
+        logging.info("Loading watched media from cache...")
+        media_to_array.extend(watched_media_set)
 
     try:
         check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug, files_to_skip)
