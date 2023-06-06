@@ -273,17 +273,14 @@ def setup():
         settings_data['nas_library_folders'] = nas_library_folder
 
     # Asks if to stop the script or continue if active session
-    while True:
-        if 'skip' not in settings_data:
-            session = input('\nIf there is an active session in plex (someone is playing a media) do you want to exit the script or just skip the playing media? [SKIP/exit] ') or 'skip'
-            if session.lower() == 'skip':
-                settings_data['skip'] = True
-                break
-            elif session.lower() == 'exit':
-                settings_data['skip'] = False
-                break
-            else:
-                print("Invalid choice. Please enter either skip or exit")
+    while 'exit_if_active_session' not in settings_data:
+        session = input('\nIf there is an active session in plex (someone is playing a media) do you want to exit the script (Yes) or just skip the playing media (No)? [y/N] ') or 'no'
+        if session.lower() in ['n', 'no']:
+            settings_data['exit_if_active_session'] = False
+        elif session.lower() in ['y', 'yes']:
+            settings_data['exit_if_active_session'] = True
+        else:
+            print("Invalid choice. Please enter either yes or no")
 
     # Concurrent moving process
     if 'max_concurrent_moves_cache' not in settings_data:

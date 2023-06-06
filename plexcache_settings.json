@@ -33,5 +33,5 @@
     "debug": false,
     "skip_ondeck": [],
     "skip_watchlist": [],
-    "skip_if_active_session": true
+    "exit_if_active_session": false
 }

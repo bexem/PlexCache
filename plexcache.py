@@ -267,13 +267,13 @@ try:
     nas_library_folders = remove_all_slashes(settings_data['nas_library_folders'])
     plex_library_folders = remove_all_slashes(settings_data['plex_library_folders'])
 
-    skip_if_active_session = settings_data.get('skip_if_active_session')
-    if skip_if_active_session is not None:
+    exit_if_active_session = settings_data.get('exit_if_active_session')
+    if exit_if_active_session is not None:
         skip = settings_data.get('skip')
         if skip is not None:
             del settings_data['skip']
     else:
-        skip_if_active_session = not settings_data.get('skip') #Inverting the boolean as the logic has been inverted
+        exit_if_active_session = not settings_data.get('skip') #Inverting the boolean as the logic has been inverted
         del settings_data['skip']
 
     max_concurrent_moves_array = settings_data['max_concurrent_moves_array']
@@ -297,7 +297,7 @@ try:
         settings_data['plex_library_folders'] = plex_library_folders
         settings_data['skip_ondeck'] = skip_ondeck
         settings_data['skip_watchlist'] = skip_watchlist
-        settings_data['skip_if_active_session'] = skip_if_active_session
+        settings_data['exit_if_active_session'] = exit_if_active_session
         json.dump(settings_data, f, indent=4)
 except Exception as e:
     logging.error(f"Error occurred while saving settings data: {e}")
@@ -321,7 +321,7 @@ except Exception as e:
 # Check if any active session
 sessions = plex.sessions()  # Get the list of active sessions
 if sessions:  # Check if there are any active sessions
-    if not skip_if_active_session:  # Check if the 'skip_if_active_session' boolean is set
+    if exit_if_active_session:  # Check if the 'exit_if_active_session' boolean is set to true
         logging.warning('There is an active session. Exiting...')
         exit('There is an active session. Exiting...')
     else:
