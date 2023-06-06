@@ -11,7 +11,7 @@ from plexapi.myplex import MyPlexAccount
 print("*** PlexCache ***")
 
 script_folder="/mnt/user/system/PlexCache/" # Folder path for the PlexCache script storing the settings, watchlist & watched cache files
-logs_folder = "/mnt/user/logs/plexcache/" # Change this if you want your logs in a different folder
+logs_folder = script_folder # Change this if you want your logs in a different folder
 max_log_files = 5 # Maximum number of log files to keep
 
 settings_filename = os.path.join(script_folder, "plexcache_settings.json")
@@ -212,19 +212,18 @@ else:
     exit("Settings file not found, please fix the variable accordingly.")
 
 # Reads the settings file and all the settings
-
 try:
     # Extracting the 'firststart' flag from the settings data
-    firststart = settings_data['firststart']
-
+    firststart = settings_data.get('firststart')
     if firststart:
-        # If it's the first start, set debug mode to true temporarily
         debug = True
         print("First start is set to true, setting debug mode temporarily to true.")
         logging.warning("First start is set to true, setting debug mode temporarily to true.")
+        del settings_data['firststart']
     else:
-        # Use the 'debug' value from the settings data
-        debug = settings_data['debug']
+        debug = settings_data.get('debug')
+        if firststart is not None:
+            del settings_data['firststart']
 
     # Extracting various settings from the settings data
     PLEX_URL = settings_data['PLEX_URL']
@@ -233,11 +232,19 @@ try:
     valid_sections = settings_data['valid_sections']
     days_to_monitor = settings_data['days_to_monitor']
     users_toggle = settings_data['users_toggle']
-    skip_users = settings_data['skip_users']
 
     # Checking and assigning 'skip_ondeck' and 'skip_watchlist' values
-    skip_ondeck = settings_data.get('skip_ondeck', skip_users)
-    skip_watchlist = settings_data.get('skip_watchlist', skip_users)
+    skip_ondeck = settings_data.get('skip_ondeck')
+    skip_watchlist = settings_data.get('skip_watchlist')
+
+    skip_users = settings_data.get('skip_users')
+    if skip_users is not None:
+        skip_ondeck = settings_data.get('skip_ondeck', skip_users)
+        skip_watchlist = settings_data.get('skip_watchlist', skip_users)
+        del settings_data['skip_users']
+    else:
+        skip_ondeck = settings_data.get('skip_ondeck', [])
+        skip_watchlist = settings_data.get('skip_watchlist', [])
 
     watchlist_toggle = settings_data['watchlist_toggle']
     watchlist_episodes = settings_data['watchlist_episodes']
@@ -260,12 +267,21 @@ try:
     nas_library_folders = remove_all_slashes(settings_data['nas_library_folders'])
     plex_library_folders = remove_all_slashes(settings_data['plex_library_folders'])
 
-    skip = settings_data['skip']
+    skip_if_active_session = settings_data.get('skip_if_active_session')
+    if skip_if_active_session is not None:
+        skip = settings_data.get('skip')
+        if skip is not None:
+            del settings_data['skip']
+    else:
+        skip_if_active_session = not settings_data.get('skip') #Inverting the boolean as the logic has been inverted
+        del settings_data['skip']
+
     max_concurrent_moves_array = settings_data['max_concurrent_moves_array']
     max_concurrent_moves_cache = settings_data['max_concurrent_moves_cache']
 
-    # Disabled because the script is now checking if running on unraid rather than using user input
-    # unraid = settings_data['unraid']
+    unraid = settings_data.get('unraid')
+    if unraid is not None:
+        del settings_data['unraid']
 except KeyError as e:
     # Error handling for missing key in settings file
     logging.critical(f"Error: {e} not found in settings file, please re-run the setup or manually edit the settings file.")
@@ -281,6 +297,7 @@ try:
         settings_data['plex_library_folders'] = plex_library_folders
         settings_data['skip_ondeck'] = skip_ondeck
         settings_data['skip_watchlist'] = skip_watchlist
+        settings_data['skip_if_active_session'] = skip_if_active_session
         json.dump(settings_data, f, indent=4)
 except Exception as e:
     logging.error(f"Error occurred while saving settings data: {e}")
@@ -303,9 +320,8 @@ except Exception as e:
 
 # Check if any active session
 sessions = plex.sessions()  # Get the list of active sessions
-
 if sessions:  # Check if there are any active sessions
-    if skip:  # Check if the 'skip' flag is set
+    if not skip_if_active_session:  # Check if the 'skip_if_active_session' boolean is set
         logging.warning('There is an active session. Exiting...')
         exit('There is an active session. Exiting...')
     else:

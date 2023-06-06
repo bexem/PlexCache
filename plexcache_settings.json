@@ -1,8 +1,8 @@
 {
     "firststart": true,
-    "PLEX_URL": "http://192.420.69.42:32400",
-    "PLEX_TOKEN": "TOKENTOKENTOKEN",
-    "plex_source": "/media",
+    "PLEX_URL": "https://plex.domain.ext",
+    "PLEX_TOKEN": "YourPlexTokenGoesHere",
+    "plex_source": "/media/",
     "plex_library_folders": [
         "movies",
         "anime",
@@ -10,32 +10,28 @@
     ],
     "valid_sections": [
         1,
-        4,
-        2
+        2,
+        3
     ],
-    "number_episodes": 5,
-    "days_to_monitor": 99,
-    "watchlist_toggle": true,
-    "watchlist_episodes": 1,
-    "watchlist_cache_expiry": 6,
+    "number_episodes": 10,
     "users_toggle": true,
-    "skip_users": [
-    ],
-    "skip_ondeck": [
-    ],
-    "skip_watchlist": [
-    ],
+    "watchlist_toggle": true,
+    "watchlist_episodes": 5,
+    "watchlist_cache_expiry": 48,
+    "days_to_monitor": 183,
     "watched_move": true,
-    "watched_cache_expiry": 24,
-    "cache_dir": "/mnt/cache",
-    "real_source": "/mnt/user",
+    "watched_cache_expiry": 48,
+    "cache_dir": "/mnt/cache/",
+    "real_source": "/mnt/user/",
     "nas_library_folders": [
         "movies",
         "anime",
         "tvseries"
     ],
-    "skip": true,
-    "max_concurrent_moves_cache": 5,
     "max_concurrent_moves_array": 2,
-    "debug": false
+    "max_concurrent_moves_cache": 5,
+    "debug": false,
+    "skip_ondeck": [],
+    "skip_watchlist": [],
+    "skip_if_active_session": true
 }
