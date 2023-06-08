@@ -268,19 +268,15 @@ try:
     plex_library_folders = remove_all_slashes(settings_data['plex_library_folders'])
 
     exit_if_active_session = settings_data.get('exit_if_active_session')
-    if exit_if_active_session is not None:
-        skip = settings_data.get('skip')
-        if skip is not None:
-            del settings_data['skip']
-    else:
-        exit_if_active_session = not settings_data.get('skip') #Inverting the boolean as the logic has been inverted
+    if exit_if_active_session is None:
+        exit_if_active_session = not settings_data.get('skip')
         del settings_data['skip']
 
     max_concurrent_moves_array = settings_data['max_concurrent_moves_array']
     max_concurrent_moves_cache = settings_data['max_concurrent_moves_cache']
 
-    unraid = settings_data.get('unraid')
-    if unraid is not None:
+    deprecated_unraid = settings_data.get('unraid')
+    if deprecated_unraid is not None:
         del settings_data['unraid']
 except KeyError as e:
     # Error handling for missing key in settings file
@@ -387,7 +383,7 @@ def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, 
         
         on_deck_files = []  # Initialize an empty list to store onDeck files
         for video in plex.library.onDeck():  # Iterate through the onDeck videos in the Plex library
-            if video.section().key in valid_sections:  # Check if the video belongs to a valid section
+            if not valid_sections or video.section().key in valid_sections:  # Check if valid_sections is empty or the video belongs to a valid section
                 delta = datetime.now() - video.lastViewedAt  # Calculate the time difference between now and the last viewed time of the video
                 if delta.days <= days_to_monitor:  # Check if the video was viewed within the specified number of days
                     if isinstance(video, Episode):  # Check if the video is an episode
@@ -493,7 +489,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
 
             for item in watchlist:
                 file = search_plex(plex, item.title)
-                if file and file.librarySectionID in valid_sections:
+                if not valid_sections or (file and file.librarySectionID in valid_sections):
                     if file.TYPE == 'show':
                         results.extend(process_show(file, watchlist_episodes))
                     else:
@@ -524,10 +520,9 @@ def get_watched_media(plex, valid_sections, last_updated, user=None):
         try:
             logging.info(f"Fetching {username}'s watched media...")
 
-            # Iterate through each valid section
-            for section_id in valid_sections:
-                section = plex_instance.library.sectionByID(section_id)
-                
+            # Iterate through each valid section or all sections if valid_sections is empty
+            sections = valid_sections if valid_sections else plex_instance.library.sections()
+            for section in sections:
                 # Search for videos in the section
                 for video in section.search(unwatched=False):
                     # Skip if the video was last viewed before the last_updated timestamp
@@ -632,61 +627,6 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
     # Return the modified file paths or an empty list
     return files or []
 
-# Function to filter the files, based on the destination
-def filter_files(files, destination, real_source, cache_dir, fileToCache):
-    # Log a message indicating that media files are being filtered for the specified destination
-    logging.info(f"Filtering media files {destination}...")
-
-    try:
-        # If fileToCache is not provided, initialize it as an empty list
-        if fileToCache is None:
-            fileToCache = []
-
-        # Set to keep track of processed files
-        processed_files = set()
-
-        # List to store media files based on the destination
-        media_to = []
-
-        # Iterate over each file
-        for file in files:
-            # If the file has already been processed, skip to the next file
-            if file in processed_files:
-                continue
-
-            # Add the file to the set of processed files
-            processed_files.add(file)
-
-            # Get the cache file name using the file's path, real_source, and cache_dir
-            cache_file_name = get_cache_paths(file, real_source, cache_dir)[1]
-
-            # Check the destination and decide whether to add the file to media_to list
-            if destination == 'array' and should_add_to_array(file, cache_file_name, fileToCache):
-                media_to.append(file)
-                logging.info(f"Adding file to array: {file}")
-            elif destination == 'cache' and should_add_to_cache(cache_file_name):
-                media_to.append(file)
-                logging.info(f"Adding file to cache: {file}")
-
-        # Return the filtered media files for the destination or an empty list
-        return media_to or []
-
-    except Exception as e:
-        # Log an error if an exception occurs during the filtering process
-        logging.error(f"Error occurred while filtering media files: {str(e)}")
-        return []
-
-# Check if the file is already present in the array
-def should_add_to_array(file, cache_file_name, fileToCache):
-    if file in fileToCache:  # Check if the file is already present in the fileToCache array
-        logging.info(f"Skipped {file} because present in fileToCache")  # Log a message indicating that the file is being skipped
-        return False  # Return False indicating that the file should not be added to the array
-    return os.path.isfile(cache_file_name)  # Check if the cache_file_name is a file and return True if it exists, False otherwise
-
-# Check if the file is already present in the cache
-def should_add_to_cache(cache_file_name):
-    return not os.path.isfile(cache_file_name)  # Return True if the cache_file_name is not a file (i.e., it does not exist in the cache), False otherwise
-
 # Function to fetch the subtitles
 def get_media_subtitles(media_files, files_to_skip=None):
     print("Fetching subtitles...")  # Print a message indicating that the subtitles are being fetched
@@ -759,6 +699,61 @@ def get_total_size_of_files(files):
     total_size_bytes = sum(os.path.getsize(file) for file in files)  # Calculate the total size of the files in bytes
     return convert_bytes_to_readable_size(total_size_bytes)  # Convert the total size to a human-readable format
 
+# Function to filter the files, based on the destination
+def filter_files(files, destination, real_source, cache_dir, fileToCache):
+    # Log a message indicating that media files are being filtered for the specified destination
+    logging.info(f"Filtering media files {destination}...")
+
+    try:
+        # If fileToCache is not provided, initialize it as an empty list
+        if fileToCache is None:
+            fileToCache = []
+
+        # Set to keep track of processed files
+        processed_files = set()
+
+        # List to store media files based on the destination
+        media_to = []
+
+        # Iterate over each file
+        for file in files:
+            # If the file has already been processed, skip to the next file
+            if file in processed_files:
+                continue
+
+            # Add the file to the set of processed files
+            processed_files.add(file)
+
+            # Get the cache file name using the file's path, real_source, and cache_dir
+            cache_file_name = get_cache_paths(file, real_source, cache_dir)[1]
+
+            # Check the destination and decide whether to add the file to media_to list
+            if destination == 'array' and should_add_to_array(file, cache_file_name, fileToCache):
+                media_to.append(file)
+                logging.info(f"Adding file to array: {file}")
+            elif destination == 'cache' and should_add_to_cache(cache_file_name):
+                media_to.append(file)
+                logging.info(f"Adding file to cache: {file}")
+
+        # Return the filtered media files for the destination or an empty list
+        return media_to or []
+
+    except Exception as e:
+        # Log an error if an exception occurs during the filtering process
+        logging.error(f"Error occurred while filtering media files: {str(e)}")
+        return []
+
+# Check if the file is already present in the array
+def should_add_to_array(file, cache_file_name, fileToCache):
+    if file in fileToCache:  # Check if the file is already present in the fileToCache array
+        logging.info(f"Skipped {file} because present in fileToCache")  # Log a message indicating that the file is being skipped
+        return False  # Return False indicating that the file should not be added to the array
+    return os.path.isfile(cache_file_name)  # Check if the cache_file_name is a file and return True if it exists, False otherwise
+
+# Check if the file is already present in the cache
+def should_add_to_cache(cache_file_name):
+    return not os.path.isfile(cache_file_name)  # Return True if the cache_file_name is not a file (i.e., it does not exist in the cache), False otherwise
+
 # Check for free space before executing moving process
 def check_free_space_and_move_files(media_files, destination, real_source, cache_dir, unraid, debug, files_to_skip=None):
     media_files_filtered = filter_files(media_files, destination, real_source, cache_dir, media_to_cache)  # Filter the media files based on certain criteria
@@ -771,7 +766,8 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
         logging.info(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")  # Log the free space on the destination drive
         if total_size * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[total_size_unit]) > free_space * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[free_space_unit]):
             # If the total size of media files is greater than the free space on the destination drive
-            raise ValueError("Not enough space on destination drive.")  # Raise an exception indicating insufficient space
+            logging.critical(f"Not enough space on {destination} drive..")
+            exit(f"Not enough space on {destination} drive.")
         logging.info(f"Moving media to {destination}...")  # Log the start of the media moving process
         print(f"Moving media to {destination}...")  # Print the start of the media moving process
         move_media_files(media_files_filtered, real_source, cache_dir, unraid, debug, destination, files_to_skip)  # Move the media files to the destination
@@ -859,7 +855,7 @@ def get_paths(file_to_move, real_source, cache_dir, unraid):
     # Modify the user path if unraid is True
     if unraid:
         user_path = user_path.replace("/mnt/user/", "/mnt/user0/", 1)
-    
+
     # Get the user file name by joining the user path with the base name of the file to move
     user_file_name = os.path.join(user_path, os.path.basename(file_to_move))
     
