@@ -23,6 +23,7 @@ PlexCache efficiently transfers media from the On Deck/Watchlist to the cache an
 - Use of multitasking to optimize file transfer time.
 - Exit the script if any active session or skip the currently playing media.
 - Find your missing unicorn.
+- Use symbolic links if the script is not running on UNRAID. **(UNTESTED)** (See Pre-Release)
 
 ## Setup
 
