@@ -22,11 +22,11 @@ PlexCache efficiently transfers media from the On Deck/Watchlist to the cache an
 - Use caching system to avoid wastful memory usage and cpu cycles.
 - Use of multitasking to optimize file transfer time.
 - Exit the script if any active session or skip the currently playing media.
+- Send Webhook messages according to set log level.
 - Find your missing unicorn.
 
-### Work in progress (see available branches and pre-releases)
+**Work in progress (pre-releases)**
 
-- Send Discord messages on errors. **(It requires additional discod.py pip requirement)**
 - Use symbolic links if the script is not running on UNRAID. **(UNTESTED)**
 
 ## Setup
