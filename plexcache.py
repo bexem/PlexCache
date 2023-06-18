@@ -1,4 +1,4 @@
-import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re
+import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re, requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
@@ -10,14 +10,41 @@ from plexapi.myplex import MyPlexAccount
 
 print("*** PlexCache ***")
 
-script_folder="/mnt/user/system/PlexCache/" # Folder path for the PlexCache script storing the settings, watchlist & watched cache files
+script_folder = "/mnt/user/system/plexcache/" # Folder path for the PlexCache script storing the settings, watchlist & watched cache files
 logs_folder = script_folder # Change this if you want your logs in a different folder
+log_level = "" # Set the desired logging level for webhook notifications. Defaults to INFO when left empty. (Options: debug, info, warning, error, critical)
 max_log_files = 5 # Maximum number of log files to keep
+
+webhook_url = ""  # Your webhook URL, leave empty for no notifications.
+webhook_headers = {} # Leave empty for Discord, otherwise edit it accordingly. (Slack example: "Content-Type": "application/json" "Authorization": "Bearer YOUR_SLACK_TOKEN" })
+webhook_level = ""  # Set the desired logging level for webhook notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
 
 settings_filename = os.path.join(script_folder, "plexcache_settings.json")
 watchlist_cache_file = Path(os.path.join(script_folder, "plexcache_watchlist_cache.json"))
 watched_cache_file = Path(os.path.join(script_folder, "plexcache_watched_cache.json"))
+
 log_file_pattern = "plexcache_log_*.log"
+
+class WebhookHandler(logging.Handler):
+    def __init__(self, webhook_url):
+        super().__init__()
+        self.webhook_url = webhook_url
+
+    def emit(self, record):
+        self.send_webhook_message(record)
+
+    def send_webhook_message(self, record):
+        payload = {
+            "content": record.msg
+        }
+        headers = {
+            "Content-Type": "application/json"
+        }
+        response = requests.post(self.webhook_url, data=json.dumps(payload), headers=headers)
+        if response.status_code == 204:
+            print("Message sent successfully")
+        else:
+            print(f"Failed to send message. Error code: {response.status_code}")
 
 def check_and_create_folder(folder):
     # Check if the folder doesn't already exist
@@ -40,12 +67,48 @@ current_time = datetime.now().strftime("%Y%m%d_%H%M")  # Get the current time an
 log_file = os.path.join(logs_folder, f"{log_file_pattern[:-5]}{current_time}.log")  # Create a filename based on the current time
 latest_log_file = os.path.join(logs_folder, f"{log_file_pattern[:-5]}latest.log")  # Create a filename for the latest log
 logger = logging.getLogger()  # Get the root logger
-logger.setLevel(logging.INFO)  # Set the log level to INFO
+if log_level:
+    log_level = log_level.lower()
+    if log_level == "debug":
+        logger.setLevel(logging.DEBUG)
+    elif log_level == "info":
+        logger.setLevel(logging.INFO)
+    elif log_level == "warning":
+        logger.setLevel(logging.WARNING)
+    elif log_level == "error":
+        logger.setLevel(logging.ERROR)
+    elif log_level == "critical":
+        logger.setLevel(logging.CRITICAL)
+    else:
+        print(f"Invalid webhook_level: {log_level}. Using default level: ERROR")
+        logger.setLevel(logging.INFO)
 
 # Configure the rotating file handler
 handler = RotatingFileHandler(log_file, maxBytes=20*1024*1024, backupCount=max_log_files)  # Create a rotating file handler
 handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))  # Set the log message format
 logger.addHandler(handler)  # Add the file handler to the logger
+
+# Create and add the webhook handler to the logger
+if webhook_url:
+    webhook_handler = WebhookHandler(webhook_url)
+    if webhook_level:
+        webhook_level = webhook_level.lower()
+        if webhook_level == "debug":
+            webhook_handler.setLevel(logging.DEBUG)
+        elif webhook_level == "info":
+            webhook_handler.setLevel(logging.INFO)
+        elif webhook_level == "warning":
+            webhook_handler.setLevel(logging.WARNING)
+        elif webhook_level == "error":
+            webhook_handler.setLevel(logging.ERROR)
+        elif webhook_level == "critical":
+            webhook_handler.setLevel(logging.CRITICAL)
+        else:
+            print(f"Invalid webhook_level: {webhook_level}. Using default level: ERROR")
+            webhook_handler.setLevel(logging.ERROR)
+    else:
+        webhook_handler.setLevel(logging.ERROR)
+    logger.addHandler(webhook_handler)  # Add the webhook handler to the logger
 
 # Create or update the symbolic link to the latest log file
 if os.path.exists(latest_log_file):
@@ -250,7 +313,9 @@ try:
     watchlist_episodes = settings_data['watchlist_episodes']
     watchlist_cache_expiry = settings_data['watchlist_cache_expiry']
 
+    watched_cache_expiry = settings_data['watched_cache_expiry']
     watched_move = settings_data['watched_move']
+
     plex_source_drive = settings_data.get('plex_source_drive')
     plex_source = add_trailing_slashes(settings_data['plex_source'])
 
@@ -327,9 +392,16 @@ if sessions:  # Check if there are any active sessions
                 media_id = media[media.find(":") + 1:media.find(":", media.find(":") + 1)]  # Extract the media ID from the source
                 media_item = plex.fetchItem(int(media_id))  # Fetch the media item using the media ID
                 media_title = media_item.title  # Get the title of the media item
-                print(f"Active session detected, skipping: {media_title}")  # Print a message indicating the active session
-                logging.warning(f"Active session detected, skipping: {media_title}")  # Log a warning message about the active session
+                media_type = media_item.type  # Get the media type (e.g., show, movie)
+                if media_type == "episode":  # Check if the media type is an episode
+                    show_title = media_item.grandparentTitle  # Get the title of the show
+                    print(f"Active session detected, skipping: {show_title} - {media_title}")  # Print a message indicating the active session with show and episode titles
+                    logging.warning(f"Active session detected, skipping: {show_title} - {media_title}")  # Log a warning message about the active session with show and episode titles
+                elif media_type == "movie":  # Check if the media type is a movie
+                    print(f"Active session detected, skipping: {media_title}")  # Print a message indicating the active session with the movie title
+                    logging.warning(f"Active session detected, skipping: {media_title}")  # Log a warning message about the active session with the movie title
                 media_path = media_item.media[0].parts[0].file  # Get the file path of the media item
+                logging.info(f"Skipping: {media_path}")
                 files_to_skip.append(media_path)  # Add the file path to the list of files to skip
             except Exception as e:
                 logging.error(f"Error occurred while processing session: {session} - {e}")  # Log an error message if an exception occurs while processing the session
@@ -382,8 +454,15 @@ def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, 
         logging.info(f"Fetching {username}'s onDeck media...")  # Log the message indicating that onDeck media is being fetched
         
         on_deck_files = []  # Initialize an empty list to store onDeck files
+        # Get all sections available for the user
+        available_sections = [section.key for section in plex.library.sections()]
+
+        # Intersect available_sections and valid_sections
+        filtered_sections = list(set(available_sections) & set(valid_sections))
+
         for video in plex.library.onDeck():  # Iterate through the onDeck videos in the Plex library
-            if not valid_sections or video.section().key in valid_sections:  # Check if valid_sections is empty or the video belongs to a valid section
+            section_key = video.section().key  # Get the section key of the video
+            if not filtered_sections or section_key in filtered_sections:  # Check if filtered_sections is empty or the video belongs to a valid section
                 delta = datetime.now() - video.lastViewedAt  # Calculate the time difference between now and the last viewed time of the video
                 if delta.days <= days_to_monitor:  # Check if the video was viewed within the specified number of days
                     if isinstance(video, Episode):  # Check if the video is an episode
@@ -394,8 +473,8 @@ def fetch_on_deck_media(plex, valid_sections, days_to_monitor, number_episodes, 
         return on_deck_files  # Return the list of onDeck files
 
     except Exception as e:  # Handle any exceptions that occur
-        print(f"An error occurred in fetch_on_deck_media: {e}")  # Print an error message indicating the exception
-        logging.error(f"An error occurred in fetch_on_deck_media: {e}")  # Log an error message indicating the exception
+        print(f"An error occurred while fetching onDeck media: {e}")  # Print an error message indicating the exception
+        logging.error(f"An error occurred while fetching onDeck media: {e}")  # Log an error message indicating the exception
         return []  # Return an empty list
 
 # Function to fetch the Plex instance
@@ -475,10 +554,15 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
     def fetch_user_watchlist(user):
         current_username = plex.myPlexAccount().title if user is None else user.title
         
+        # Get all sections available for the user
+        available_sections = [section.key for section in plex.library.sections()]
+        # Intersect available_sections and valid_sections
+        filtered_sections = list(set(available_sections) & set(valid_sections))
+
         # Skip if user's token is in the skip_watchlist list
         if user and user.get_token(plex.machineIdentifier) in skip_watchlist:
-            print(f"Skipping {current_username}'s onDeck media...")
-            logging.info(f"Skipping {current_username}'s onDeck media...")
+            print(f"Skipping {current_username}'s watchlist media...")
+            logging.info(f"Skipping {current_username}'s watchlist media...")
             return []
         
         print(f"Fetching {current_username}'s watchlist media...")
@@ -489,7 +573,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
 
             for item in watchlist:
                 file = search_plex(plex, item.title)
-                if not valid_sections or (file and file.librarySectionID in valid_sections):
+                if file is not None and (not filtered_sections or (file.librarySectionID in filtered_sections)):
                     if file.TYPE == 'show':
                         results.extend(process_show(file, watchlist_episodes))
                     else:
@@ -518,22 +602,35 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
 def get_watched_media(plex, valid_sections, last_updated, user=None):
     def fetch_user_watched_media(plex_instance, username):
         try:
+            print(f"Fetching {username}'s watched media...")
             logging.info(f"Fetching {username}'s watched media...")
 
-            # Iterate through each valid section or all sections if valid_sections is empty
-            sections = valid_sections if valid_sections else plex_instance.library.sections()
-            for section in sections:
+            # Get all sections available for the user
+            all_sections = [section.key for section in plex_instance.library.sections()]
+
+            # Check if valid_sections is specified. If not, consider all available sections as valid.
+            if 'valid_sections' in globals() and valid_sections:
+                available_sections = list(set(all_sections) & set(valid_sections))
+            else:
+                available_sections = all_sections
+
+            # Filter sections the user has access to
+            user_accessible_sections = [section for section in available_sections if section in all_sections]
+
+            for section_key in user_accessible_sections:
+                section = plex_instance.library.sectionByID(section_key)  # Get the section object using its key
+
                 # Search for videos in the section
                 for video in section.search(unwatched=False):
                     # Skip if the video was last viewed before the last_updated timestamp
                     if video.lastViewedAt and last_updated and video.lastViewedAt < datetime.fromtimestamp(last_updated):
                         continue
-                    
+
                     # Process the video and yield the file path
                     yield from process_video(video)
         except Exception as e:
-            print(f"An error occurred in fetch_on_deck_media: {e}")
-            logging.error(f"An error occurred in fetch_on_deck_media: {e}")
+            print(f"An error occurred in fetch_user_watched_media: {e}")
+            logging.error(f"An error occurred in fetch_user_watched_media: {e}")
 
     def process_video(video):
         if video.TYPE == 'show':
@@ -575,19 +672,25 @@ def get_watched_media(plex, valid_sections, last_updated, user=None):
             try:
                 yield from future.result()
             except Exception as e:
-                print(f"An error occurred in fetch_on_deck_media: {e}")
-                logging.error(f"An error occurred in fetch_on_deck_media: {e}")
+                print(f"An error occurred in get_watched_media: {e}")
+                logging.error(f"An error occurred in get_watched_media: {e}")
 
 # Function to load watched media from cache
-def load_watched_media_from_cache(cache_file):
+def load_media_from_cache(cache_file):
     if cache_file.exists():
         with cache_file.open('r') as f:
-            data = json.load(f)
-            if isinstance(data, dict):
-                return set(data.get('media', [])), data.get('timestamp')
-            elif isinstance(data, list):
-                # cache file contains just a list of media, without timestamp
-                return set(data), None
+            try:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return set(data.get('media', [])), data.get('timestamp')
+                elif isinstance(data, list):
+                    # cache file contains just a list of media, without timestamp
+                    return set(data), None
+            except json.JSONDecodeError:
+                # Clear the file and return an empty set
+                with cache_file.open('w') as f:
+                    f.write(json.dumps({'media': [], 'timestamp': None}))
+                return set(), None
     return set(), None
 
 # Modify the files paths from the paths given by plex to link actual files on the running system
@@ -700,14 +803,17 @@ def get_total_size_of_files(files):
     return convert_bytes_to_readable_size(total_size_bytes)  # Convert the total size to a human-readable format
 
 # Function to filter the files, based on the destination
-def filter_files(files, destination, real_source, cache_dir, fileToCache):
+def filter_files(files, destination, real_source, cache_dir, media_to_cache, files_to_skip):
     # Log a message indicating that media files are being filtered for the specified destination
     logging.info(f"Filtering media files {destination}...")
 
+    if not len(files_to_skip) == 0:
+        files_to_skip = modify_file_paths(files_to_skip, plex_source, real_source, plex_library_folders, nas_library_folders)
+
     try:
-        # If fileToCache is not provided, initialize it as an empty list
-        if fileToCache is None:
-            fileToCache = []
+        # If media_to_cache is not provided, initialize it as an empty list
+        if media_to_cache is None:
+            media_to_cache = []
 
         # Set to keep track of processed files
         processed_files = set()
@@ -715,10 +821,13 @@ def filter_files(files, destination, real_source, cache_dir, fileToCache):
         # List to store media files based on the destination
         media_to = []
 
+        if files is None or len(files) == 0:
+            return []
+
         # Iterate over each file
         for file in files:
             # If the file has already been processed, skip to the next file
-            if file in processed_files:
+            if file in processed_files or file in files_to_skip:
                 continue
 
             # Add the file to the set of processed files
@@ -728,7 +837,7 @@ def filter_files(files, destination, real_source, cache_dir, fileToCache):
             cache_file_name = get_cache_paths(file, real_source, cache_dir)[1]
 
             # Check the destination and decide whether to add the file to media_to list
-            if destination == 'array' and should_add_to_array(file, cache_file_name, fileToCache):
+            if destination == 'array' and should_add_to_array(file, cache_file_name, media_to_cache):
                 media_to.append(file)
                 logging.info(f"Adding file to array: {file}")
             elif destination == 'cache' and should_add_to_cache(cache_file_name):
@@ -744,19 +853,21 @@ def filter_files(files, destination, real_source, cache_dir, fileToCache):
         return []
 
 # Check if the file is already present in the array
-def should_add_to_array(file, cache_file_name, fileToCache):
-    if file in fileToCache:  # Check if the file is already present in the fileToCache array
-        logging.info(f"Skipped {file} because present in fileToCache")  # Log a message indicating that the file is being skipped
-        return False  # Return False indicating that the file should not be added to the array
-    return os.path.isfile(cache_file_name)  # Check if the cache_file_name is a file and return True if it exists, False otherwise
+def should_add_to_array(file, cache_file_name, media_to_cache):
+    # If the file is in media_to_cache or the cache file doesn't exist, return False
+    if file in media_to_cache or not os.path.isfile(cache_file_name):
+        if file in media_to_cache:
+            logging.info(f"File '{file}' was not added to the array because it's already scheduled to be moved to the cache (found in 'media_to_cache'). Skipped for now.")
+        return False
+    return True  # Otherwise, the file should be added to the array
 
 # Check if the file is already present in the cache
 def should_add_to_cache(cache_file_name):
     return not os.path.isfile(cache_file_name)  # Return True if the cache_file_name is not a file (i.e., it does not exist in the cache), False otherwise
 
 # Check for free space before executing moving process
-def check_free_space_and_move_files(media_files, destination, real_source, cache_dir, unraid, debug, files_to_skip=None):
-    media_files_filtered = filter_files(media_files, destination, real_source, cache_dir, media_to_cache)  # Filter the media files based on certain criteria
+def check_free_space_and_move_files(media_files, destination, real_source, cache_dir, unraid, debug):
+    media_files_filtered = filter_files(media_files, destination, real_source, cache_dir, media_to_cache, files_to_skip)  # Filter the media files based on certain criteria
     total_size, total_size_unit = get_total_size_of_files(media_files_filtered)  # Get the total size of the filtered media files
     logging.info(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")  # Log the total size of media files
     if total_size > 0:  # If there are media files to be moved
@@ -770,7 +881,7 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
             exit(f"Not enough space on {destination} drive.")
         logging.info(f"Moving media to {destination}...")  # Log the start of the media moving process
         print(f"Moving media to {destination}...")  # Print the start of the media moving process
-        move_media_files(media_files_filtered, real_source, cache_dir, unraid, debug, destination, files_to_skip)  # Move the media files to the destination
+        move_media_files(media_files_filtered, real_source, cache_dir, unraid, debug, destination, max_concurrent_moves_array, max_concurrent_moves_cache)  # Move the media files to the destination
     else:
         print(f"Nothing to move to {destination}")  # If there are no media files to move, print a message
         logging.info(f"Nothing to move to {destination}")  # If there are no media files to move, log a message
@@ -805,21 +916,19 @@ def move_file(move_cmd):
         return 1
 
 # Created the move command that gets executed from the function above
-def move_media_files(files, real_source, cache_dir, unraid, debug, destination, files_to_skip=None, max_concurrent_moves_array=1, max_concurrent_moves_cache=1):
+def move_media_files(files, real_source, cache_dir, unraid, debug, destination, max_concurrent_moves_array, max_concurrent_moves_cache):
     # Print and log the destination directory
     print(f"Moving media files to {destination}...")
     logging.info(f"Moving media files to {destination}...")
     
     # Initialize the set of files to skip and the set of processed files
-    if files_to_skip is None:
-        files_to_skip = set()
     processed_files = set()
     move_commands = []
 
     # Iterate over each file to move
     for file_to_move in files:
-        # Skip the file if it is in the files_to_skip set or has already been processed
-        if file_to_move in files_to_skip or file_to_move in processed_files:
+        # Skip the file if it has already been processed
+        if file_to_move in processed_files:
             continue
         
         # Add the file to the set of processed files
@@ -917,7 +1026,7 @@ for path in [real_source, cache_dir]:
 if watchlist_toggle:
     try:
         # Load previously watched media from cache and get the last update time
-        watchlist_media_set, last_updated = load_watched_media_from_cache(watchlist_cache_file)
+        watchlist_media_set, last_updated = load_media_from_cache(watchlist_cache_file)
         current_watchlist_set = set()
 
         if is_connected():
@@ -943,9 +1052,13 @@ if watchlist_toggle:
                 # Add new media to the watchlist media set
                 watchlist_media_set.update(media_to_cache)
 
+                # Modify file paths and add subtitles
+                media_to_cache = modify_file_paths(media_to_cache, plex_source, real_source, plex_library_folders, nas_library_folders)
+                media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to_skip))
+
                 # Update the cache file with the updated watchlist media set
                 with watchlist_cache_file.open('w') as f:
-                    json.dump(list(watchlist_media_set), f)
+                    json.dump({'media': list(media_to_cache), 'timestamp': datetime.now().timestamp()}, f)
             else:
                 # Load watchlist media from cache
                 print("Loading watchlist media from cache...")
@@ -976,56 +1089,61 @@ media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to
 
 # Watched media logic
 if watched_move:
-    # Load watched media from cache
-    watched_media_set, last_updated = load_watched_media_from_cache(watched_cache_file)
-    current_media_set = set()
+    try:
+        # Load watched media from cache
+        watched_media_set, last_updated = load_media_from_cache(watched_cache_file)
+        current_media_set = set()
 
-    # Check if cache file doesn't exist or debug mode is enabled
-    if not watched_cache_file.exists() or debug:
-        print("Fetching watched media...")
-        logging.info("Fetching watched media...")
+        # Check if cache file doesn't exist or debug mode is enabled
+        if not watched_cache_file.exists() or debug or (datetime.now() - datetime.fromtimestamp(watched_cache_file.stat().st_mtime) > timedelta(hours=watched_cache_expiry)):
+            print("Fetching watched media...")
+            logging.info("Fetching watched media...")
 
-        # Get watched media from Plex server
-        fetched_media = get_watched_media(plex, valid_sections, last_updated)
+            # Get watched media from Plex server
+            fetched_media = get_watched_media(plex, valid_sections, last_updated)
+            
+            # Add fetched media to the current media set
+            for file_path in fetched_media:
+                current_media_set.add(file_path)
 
-        # Add fetched media to the current media set
-        for file_path in fetched_media:
-            current_media_set.add(file_path)
+                # Check if file is not already in the watched media set
+                if file_path not in watched_media_set:
+                    media_to_array.append(file_path)
 
-            # Check if file is not already in the watched media set
-            if file_path not in watched_media_set:
-                media_to_array.append(file_path)
+            # Add new media to the watched media set
+            watched_media_set.update(media_to_array)
+            
+            # Modify file paths and add subtitles
+            media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
+            media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip))
 
-        # Add new media to the watched media set
-        watched_media_set.update(media_to_array)
+            # Save updated watched media set to cache file
+            with watched_cache_file.open('w') as f:
+                json.dump({'media': list(media_to_array), 'timestamp': datetime.now().timestamp()}, f)
 
-        # Modify file paths and add subtitles
-        media_to_array = modify_file_paths(media_to_array, plex_source, real_source, plex_library_folders, nas_library_folders)
-        media_to_array.extend(get_media_subtitles(media_to_array, files_to_skip=files_to_skip))
+        else:
+            print("Loading watched media from cache...")
+            logging.info("Loading watched media from cache...")
+            # Add watched media from cache to the media array
+            media_to_array.extend(watched_media_set)
 
-        # Save updated watched media set to cache file
-        with watched_cache_file.open('w') as f:
-            json.dump({'media': list(watched_media_set), 'timestamp': datetime.now().timestamp()}, f)
-
-    else:
-        print("Loading watched media from cache...")
-        logging.info("Loading watched media from cache...")
-
-        # Add watched media from cache to the media array
-        media_to_array.extend(watched_media_set)
+    except Exception as e:
+        # Handle any exceptions that occur while processing the watchlist
+        print("An error occurred while processing the watched media.")
+        logging.error("An error occurred while processing the watched media: %s", str(e))
 
     try:
         # Check free space and move files
-        check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug, files_to_skip)
+        check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug)
     except Exception as e:
-        logging.critical(f"Error checking free space and moving media files: {str(e)}")
+        logging.critical(f"Error checking free space and moving media files to the array: {str(e)}")
         exit(f"Error: {str(e)}")
 
 # Moving the files to the cache drive
 try:
-    check_free_space_and_move_files(media_to_cache, 'cache', real_source, cache_dir, unraid, debug, files_to_skip)
+    check_free_space_and_move_files(media_to_cache, 'cache', real_source, cache_dir, unraid, debug)
 except Exception as e:
-    logging.critical(f"Error checking free space and moving media files: {str(e)}")
+    logging.critical(f"Error checking free space and moving media files to the cache: {str(e)}")
     exit(f"Error: {str(e)}")
 
 print("Thank you for using bexem's script: \nhttps://github.com/bexem/PlexCache")
