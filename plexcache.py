@@ -1,4 +1,4 @@
-import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re, requests
+import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re, requests, ctypes
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
@@ -11,7 +11,7 @@ from plexapi.myplex import MyPlexAccount
 print("*** PlexCache ***")
 
 script_folder = "/mnt/user/system/plexcache/" # Folder path for the PlexCache script storing the settings, watchlist & watched cache files
-logs_folder = script_folder # Change this if you want your logs in a different folder
+logs_folder = "/mnt/user/system/plexcache/" # Change this if you want your logs in a different folder
 log_level = "" # Set the desired logging level for webhook notifications. Defaults to INFO when left empty. (Options: debug, info, warning, error, critical)
 max_log_files = 5 # Maximum number of log files to keep
 
@@ -141,6 +141,9 @@ def check_os():
         'Windows': {'path': None, 'msg': 'Script is currently running on Windows.'}
     }
 
+    if platform.system() == 'Windows' and not ctypes.windll.shell32.IsUserAnAdmin():
+        logging.critical('This script needs to be run as an administrator on Windows. Exiting...')
+        exit('This script needs to be run as an administrator on Windows.')
     # Check if the operating system is recognized
     if os_name not in os_info:
         logging.critical('This is an unrecognized system. Exiting...')
@@ -163,6 +166,11 @@ def check_os():
 
 # Call the check_os() function and store the returned values
 unraid, os_linux = check_os()
+
+# Check if on Windows and if script has administrative privileges
+if platform.system() == 'Windows':
+    if not is_admin():
+        exit('This script needs to be run as an administrator on Windows.')
 
 # Remove "/" or "\" from a given path
 def remove_trailing_slashes(value):
@@ -915,6 +923,59 @@ def move_file(move_cmd):
         logging.error(f"Error moving file: {str(e)}")
         return 1
 
+def move_and_link_file(src, dst, os_linux):
+    # Check if the file is a symlink
+    if os.path.islink(src):
+        # The file is already a symlink
+        logging.info('The file is already a symbolic link.')
+
+        # Check if the file is already present at the destination
+        if os.path.exists(dst):
+            # File is present at destination. Delete symlink at source and move file from cache to array
+            os.unlink(src)
+            logging.info('The symbolic link has been removed.')
+            try:
+                shutil.move(dst, src)  # move file from cache to array
+                logging.info('The file has been moved back to the array.')
+            except OSError as e:
+                logging.error(f'Failed to move file back to the array. Error: {e}')
+        else:
+            # File is missing at destination. The symlink might be broken.
+            logging.warning('File is missing at the destination. The symlink might be broken.')
+    else:
+        # If the source is not a symlink, we proceed as in the earlier version of the code
+        temp = src + '.temp'  # Temporary file name at source location
+
+        # Check if the file is already present at the destination
+        if os.path.exists(dst):
+            logging.warning('File is already present at the destination.')
+        else:
+            # Step 1: Copy the file
+            try:
+                shutil.copy2(src, dst)  # copy2 preserves metadata
+                logging.info('File copied successfully.')
+            except OSError as e:
+                logging.error(f'Failed to copy file. Error: {e}')
+                return
+
+        # Step 2: Create a symlink at the source, pointing to the new file
+        try:
+            if os_linux:
+                os.symlink(dst, temp)
+            else:
+                os.symlink(dst, temp, target_is_directory=os.path.isdir(dst))  # For Windows
+            logging.info('Symbolic link created successfully.')
+        except OSError as e:
+            logging.error(f'Failed to create symbolic link. Error: {e}')
+            return
+
+        # Step 3: Remove the original file and rename the link
+        try:
+            os.remove(src)
+            os.rename(temp, src)
+            logging.info('Original file removed and link renamed successfully.')
+        except OSError as e:
+            logging.error(f'Failed to remove original file or rename link. Error: {e}')
 # Created the move command that gets executed from the function above
 def move_media_files(files, real_source, cache_dir, unraid, debug, destination, max_concurrent_moves_array, max_concurrent_moves_cache):
     # Print and log the destination directory
@@ -942,7 +1003,10 @@ def move_media_files(files, real_source, cache_dir, unraid, debug, destination, 
         
         # If a move command is obtained, append it to the list of move commands
         if move is not None:
-            move_commands.append(move)
+            if not unraid:  # If the script is not running on Unraid which uses a FUSE system, the script will use symlinks
+                move_and_link_file(move[0], move[1], os_linux)  # Use symlinks so that the file moving is transparent to Plex
+            else:  # Use original logic otherwise
+                move_commands.append(move)
     
     # Execute the move commands
     execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_concurrent_moves_cache, destination)

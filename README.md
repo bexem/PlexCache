@@ -22,7 +22,6 @@ PlexCache efficiently transfers media from the On Deck/Watchlist to the cache an
 - Use caching system to avoid wastful memory usage and cpu cycles.
 - Use of multitasking to optimize file transfer time.
 - Exit the script if any active session or skip the currently playing media.
-- Send Webhook messages according to set log level.
 - Find your missing unicorn.
 
 **Work in progress (pre-releases)**
