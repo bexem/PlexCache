@@ -15,7 +15,7 @@ PlexCache efficiently transfers media from the On Deck/Watchlist to the cache an
 - Search only the specified libraries.
 - Check for free space before moving any file.
 - Move watched media present on the cache drive back to the array.
-- Move relative subtitles along with the media moved to or from the cache.
+- Move respective subtitles along with the media moved to or from the cache.
 - Filter media older than a specified number of days.
 - Run in debug mode for testing.
 - Use of a log file for easy debugging.
