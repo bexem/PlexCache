@@ -210,6 +210,7 @@ def setup():
         watched_move = input('\nDo you want to move watched media from the cache back to the array? [y/N] ') or 'no'
         if watched_move.lower() in ['n', 'no']:
             settings_data['watched_move'] = False
+            settings_data['watched_cache_expiry'] = 48
         elif watched_move.lower() in ['y', 'yes']:
             settings_data['watched_move'] = True
             prompt_user_for_number('\nDefine the wwatched cache expiry duration in hours (default: 48) ', '48', 'watched_cache_expiry')
