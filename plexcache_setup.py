@@ -212,6 +212,7 @@ def setup():
             settings_data['watched_move'] = False
         elif watched_move.lower() in ['y', 'yes']:
             settings_data['watched_move'] = True
+            prompt_user_for_number('\nDefine the wwatched cache expiry duration in hours (default: 48) ', '48', 'watched_cache_expiry')
         else:
             print("Invalid choice. Please enter either yes or no")
 
