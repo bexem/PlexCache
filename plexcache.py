@@ -15,7 +15,7 @@ logs_folder = script_folder # Change this if you want your logs in a different f
 log_level = "" # Set the desired logging level for webhook notifications. Defaults to INFO when left empty. (Options: debug, info, warning, error, critical)
 max_log_files = 5 # Maximum number of log files to keep
 
-notification = "unraid" # Unraid, Webhook or Both
+notification = "system" # Unraid or Webhook, or Both; System instead will automatically switch to unraid if the scripts detects running on unraid
 unraid_level = "warning"  # Set the desired logging level for the notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
 webhook_level = ""  # Set the desired logging level for the notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
 
@@ -122,28 +122,6 @@ handler = RotatingFileHandler(log_file, maxBytes=20*1024*1024, backupCount=max_l
 handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))  # Set the log message format
 logger.addHandler(handler)  # Add the file handler to the logger
 
-# Create and add the webhook handler to the logger
-if notification.lower() == "both" or notification.lower() == "unraid":
-    unraid_handler = UnraidHandler()
-    if unraid_level:
-        unraid_level = unraid_level.lower()
-        if unraid_level == "debug":
-            unraid_handler.setLevel(logging.DEBUG)
-        elif unraid_level == "info":
-            unraid_handler.setLevel(logging.INFO)
-        elif unraid_level == "warning":
-            unraid_handler.setLevel(logging.WARNING)
-        elif unraid_level == "error":
-            unraid_handler.setLevel(logging.ERROR)
-        elif unraid_level == "critical":
-            unraid_handler.setLevel(logging.CRITICAL)
-        else:
-            print(f"Invalid unraid_level: {unraid_level}. Using default level: ERROR")
-            unraid_handler.setLevel(logging.ERROR)
-    else:
-        unraid_handler.setLevel(logging.ERROR)
-    logger.addHandler(unraid_handler)  # Add the unraid handler to the logger
-
 # Create or update the symbolic link to the latest log file
 if os.path.exists(latest_log_file):
     os.remove(latest_log_file)  # Remove the existing link if it exists
@@ -161,8 +139,6 @@ def clean_old_log_files(logs_folder, log_file_pattern, max_log_files):
 
 # Call the function to clean old log files
 clean_old_log_files(logs_folder, log_file_pattern, max_log_files)
-
-logging.info("*** PlexCache ***")
 
 def check_os():
     # Check the operating system
@@ -197,6 +173,36 @@ def check_os():
 
 # Call the check_os() function and store the returned values
 unraid, os_linux = check_os()
+
+# Create and add the webhook handler to the logger
+if unraid:
+    if notification.lower() == "system":
+        notification = "unraid"
+else:
+    if notification.lower() == "unraid":
+        notification = ""
+if notification.lower() == "both" or notification.lower() == "unraid":
+    unraid_handler = UnraidHandler()
+    if unraid_level:
+        unraid_level = unraid_level.lower()
+        if unraid_level == "debug":
+            unraid_handler.setLevel(logging.DEBUG)
+        elif unraid_level == "info":
+            unraid_handler.setLevel(logging.INFO)
+        elif unraid_level == "warning":
+            unraid_handler.setLevel(logging.WARNING)
+        elif unraid_level == "error":
+            unraid_handler.setLevel(logging.ERROR)
+        elif unraid_level == "critical":
+            unraid_handler.setLevel(logging.CRITICAL)
+        else:
+            print(f"Invalid unraid_level: {unraid_level}. Using default level: ERROR")
+            unraid_handler.setLevel(logging.ERROR)
+    else:
+        unraid_handler.setLevel(logging.ERROR)
+    logger.addHandler(unraid_handler)  # Add the unraid handler to the logger
+
+logging.info("*** PlexCache ***")
 
 # Remove "/" or "\" from a given path
 def remove_trailing_slashes(value):
