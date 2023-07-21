@@ -16,8 +16,11 @@ log_level = "" # Set the desired logging level for webhook notifications. Defaul
 max_log_files = 5 # Maximum number of log files to keep
 
 notification = "system" # Unraid or Webhook, or Both; System instead will automatically switch to unraid if the scripts detects running on unraid
-unraid_level = "warning"  # Set the desired logging level for the notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
-webhook_level = ""  # Set the desired logging level for the notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
+# Set the desired logging level for the notifications. 
+unraid_level = "summary"  
+webhook_level = "summary" 
+# Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
+# You can also set it to "summary" and it will notify on error but also give you a short summary at the end of each run. 
 
 webhook_url = ""  # Your webhook URL, leave empty for no notifications.
 webhook_headers = {} # Leave empty for Discord, otherwise edit it accordingly. (Slack example: "Content-Type": "application/json" "Authorization": "Bearer YOUR_SLACK_TOKEN" })
@@ -39,7 +42,15 @@ class UnraidHandler(logging.Handler):
 
     def emit(self, record):
         if self.notify_cmd_base:
-            self.send_unraid_notification(record)
+            if record.levelno == SUMMARY:
+                self.send_summary_unraid_notification(record)
+            else:
+                self.send_unraid_notification(record)
+
+    def send_summary_unraid_notification(self, record):
+        icon = 'normal'
+        notify_cmd = f'{self.notify_cmd_base} -e "PlexCache: Summary" -s "{record.name}" -m "{record.msg}" -d "{record.msg}" -i "{icon}"'
+        subprocess.call(notify_cmd, shell=True)
 
     def send_unraid_notification(self, record):
         # Map logging levels to icons
@@ -54,7 +65,7 @@ class UnraidHandler(logging.Handler):
         icon = level_to_icon.get(record.levelname, 'normal')  # default to 'normal' if levelname is not found in the dictionary
 
         # Prepare the command with necessary arguments
-        notify_cmd = f'{self.notify_cmd_base} -e "{record.levelname}" -s "{record.name}" -m "{record.msg}" -i "{icon}"'
+        notify_cmd = f'{self.notify_cmd_base} -e "{record.levelname}" -s "{record.name}" -m "{record.msg}"  -d "{record.msg}" -i "{icon}"'
 
         # Execute the command
         subprocess.call(notify_cmd, shell=True)
@@ -65,7 +76,23 @@ class WebhookHandler(logging.Handler):
         self.webhook_url = webhook_url
 
     def emit(self, record):
-        self.send_webhook_message(record)
+        if record.levelno == SUMMARY:
+            self.send_summary_webhook_message(record)
+        else:
+            self.send_webhook_message(record)
+
+    def send_summary_webhook_message(self, record):
+        payload = {
+            "content": record.msg
+        }
+        headers = {
+            "Content-Type": "application/json"
+        }
+        response = requests.post(self.webhook_url, data=json.dumps(payload), headers=headers)
+        if response.status_code == 204:
+            print("Summary message sent successfully")
+        else:
+            print(f"Failed to send summary message. Error code: {response.status_code}")
 
     def send_webhook_message(self, record):
         payload = {
@@ -122,6 +149,10 @@ handler = RotatingFileHandler(log_file, maxBytes=20*1024*1024, backupCount=max_l
 handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))  # Set the log message format
 logger.addHandler(handler)  # Add the file handler to the logger
 
+# Define a new level called SUMMARY that is equivalent to INFO level
+SUMMARY = logging.INFO + 1
+logging.addLevelName(SUMMARY, 'SUMMARY')
+
 # Create or update the symbolic link to the latest log file
 if os.path.exists(latest_log_file):
     os.remove(latest_log_file)  # Remove the existing link if it exists
@@ -166,21 +197,29 @@ def check_os():
     if is_unraid:
         os_info[os_name]['msg'] += ' The script is also running on Unraid.'
 
+    # Check if script is running inside a Docker container
+    is_docker = os.path.exists('/.dockerenv')
+    if is_docker:
+        os_info[os_name]['msg'] += ' The script is running inside a Docker container.'
+        
     # Log the information about the operating system
     logging.info(os_info[os_name]['msg'])
 
-    return is_unraid, is_linux
+    return is_unraid, is_linux, is_docker
 
 # Call the check_os() function and store the returned values
-unraid, os_linux = check_os()
+unraid, os_linux, is_docker = check_os()
 
 # Create and add the webhook handler to the logger
-if unraid:
-    if notification.lower() == "system":
+if notification.lower() == "unraid" or notification.lower() == "system":
+    if unraid and not is_docker:
         notification = "unraid"
-else:
-    if notification.lower() == "unraid":
+    else:
         notification = ""
+if notification.lower() == "both":
+    if unraid and is_docker:
+        notification = "webhook"
+
 if notification.lower() == "both" or notification.lower() == "unraid":
     unraid_handler = UnraidHandler()
     if unraid_level:
@@ -195,6 +234,8 @@ if notification.lower() == "both" or notification.lower() == "unraid":
             unraid_handler.setLevel(logging.ERROR)
         elif unraid_level == "critical":
             unraid_handler.setLevel(logging.CRITICAL)
+        elif unraid_level.lower() == "summary":
+            unraid_handler.setLevel(SUMMARY)
         else:
             print(f"Invalid unraid_level: {unraid_level}. Using default level: ERROR")
             unraid_handler.setLevel(logging.ERROR)
@@ -912,6 +953,7 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
     logging.info(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")  # Log the total size of media files
     if total_size > 0:  # If there are media files to be moved
         print(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")  # Print the total size of media files
+        logger.log(SUMMARY, f"Media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")
         free_space, free_space_unit = get_free_space(destination == 'cache' and cache_dir or real_source)  # Get the free space on the destination drive
         print(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")  # Print the free space on the destination drive
         logging.info(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")  # Log the free space on the destination drive
@@ -925,6 +967,7 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
     else:
         print(f"Nothing to move to {destination}")  # If there are no media files to move, print a message
         logging.info(f"Nothing to move to {destination}")  # If there are no media files to move, log a message
+        logger.log(SUMMARY, f"Nothing to move to {destination}")
 
 # Function to check if given path exists, is a directory and the script has writing permissions
 def check_path_exists(path):
@@ -1047,6 +1090,7 @@ def execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_
             results = executor.map(move_file, move_commands)  # Move the files using multiple threads
             errors = [result for result in results if result != 0]  # Collect any non-zero error codes
             print(f"Finished moving files with {len(errors)} errors.")  # Print the number of errors encountered during file moves
+            logger.log(SUMMARY, f"Moved files with {len(errors)} errors.")
 
 # Function to check if internet is available
 def is_connected():
