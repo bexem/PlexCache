@@ -1,4 +1,4 @@
-import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re, requests
+import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re, requests, subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
@@ -15,15 +15,49 @@ logs_folder = script_folder # Change this if you want your logs in a different f
 log_level = "" # Set the desired logging level for webhook notifications. Defaults to INFO when left empty. (Options: debug, info, warning, error, critical)
 max_log_files = 5 # Maximum number of log files to keep
 
+notification = "unraid" # Unraid, Webhook or Both
+notification_level = "warning"  # Set the desired logging level for the notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
+
 webhook_url = ""  # Your webhook URL, leave empty for no notifications.
 webhook_headers = {} # Leave empty for Discord, otherwise edit it accordingly. (Slack example: "Content-Type": "application/json" "Authorization": "Bearer YOUR_SLACK_TOKEN" })
-webhook_level = ""  # Set the desired logging level for webhook notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
+webhook_level = ""  # Set the desired logging level for the notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
 
 settings_filename = os.path.join(script_folder, "plexcache_settings.json")
 watchlist_cache_file = Path(os.path.join(script_folder, "plexcache_watchlist_cache.json"))
 watched_cache_file = Path(os.path.join(script_folder, "plexcache_watched_cache.json"))
 
 log_file_pattern = "plexcache_log_*.log"
+
+class UnraidHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.notify_cmd_base = "/usr/local/emhttp/webGui/scripts/notify"
+        if not os.path.isfile(self.notify_cmd_base) or not os.access(self.notify_cmd_base, os.X_OK):
+            logging.warning(f"{self.notify_cmd_base} does not exist or is not executable. Unraid notifications will not be sent.")
+            print(f"{self.notify_cmd_base} does not exist or is not executable. Unraid notifications will not be sent.")
+            self.notify_cmd_base = None
+
+    def emit(self, record):
+        if self.notify_cmd_base:
+            self.send_unraid_notification(record)
+
+    def send_unraid_notification(self, record):
+        # Map logging levels to icons
+        level_to_icon = {
+            'WARNING': 'warning',
+            'ERROR': 'alert',
+            'INFO': 'normal',
+            'DEBUG': 'normal',
+            'CRITICAL': 'alert'
+        }
+
+        icon = level_to_icon.get(record.levelname, 'normal')  # default to 'normal' if levelname is not found in the dictionary
+
+        # Prepare the command with necessary arguments
+        notify_cmd = f'{self.notify_cmd_base} -e "{record.levelname}" -s "{record.name}" -m "{record.msg}" -i "{icon}"'
+
+        # Execute the command
+        subprocess.call(notify_cmd, shell=True)
 
 class WebhookHandler(logging.Handler):
     def __init__(self, webhook_url):
@@ -89,26 +123,26 @@ handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)
 logger.addHandler(handler)  # Add the file handler to the logger
 
 # Create and add the webhook handler to the logger
-if webhook_url:
-    webhook_handler = WebhookHandler(webhook_url)
-    if webhook_level:
-        webhook_level = webhook_level.lower()
-        if webhook_level == "debug":
-            webhook_handler.setLevel(logging.DEBUG)
-        elif webhook_level == "info":
-            webhook_handler.setLevel(logging.INFO)
-        elif webhook_level == "warning":
-            webhook_handler.setLevel(logging.WARNING)
-        elif webhook_level == "error":
-            webhook_handler.setLevel(logging.ERROR)
-        elif webhook_level == "critical":
-            webhook_handler.setLevel(logging.CRITICAL)
+if notification.lower() == "both" or notification.lower() == "unraid":
+    unraid_handler = UnraidHandler()
+    if notification_level:
+        notification_level = notification_level.lower()
+        if notification_level == "debug":
+            unraid_handler.setLevel(logging.DEBUG)
+        elif notification_level == "info":
+            unraid_handler.setLevel(logging.INFO)
+        elif notification_level == "warning":
+            unraid_handler.setLevel(logging.WARNING)
+        elif notification_level == "error":
+            unraid_handler.setLevel(logging.ERROR)
+        elif notification_level == "critical":
+            unraid_handler.setLevel(logging.CRITICAL)
         else:
-            print(f"Invalid webhook_level: {webhook_level}. Using default level: ERROR")
-            webhook_handler.setLevel(logging.ERROR)
+            print(f"Invalid notification_level: {notification_level}. Using default level: ERROR")
+            unraid_handler.setLevel(logging.ERROR)
     else:
-        webhook_handler.setLevel(logging.ERROR)
-    logger.addHandler(webhook_handler)  # Add the webhook handler to the logger
+        unraid_handler.setLevel(logging.ERROR)
+    logger.addHandler(unraid_handler)  # Add the unraid handler to the logger
 
 # Create or update the symbolic link to the latest log file
 if os.path.exists(latest_log_file):
