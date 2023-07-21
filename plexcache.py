@@ -16,11 +16,11 @@ log_level = "" # Set the desired logging level for webhook notifications. Defaul
 max_log_files = 5 # Maximum number of log files to keep
 
 notification = "unraid" # Unraid, Webhook or Both
-notification_level = "warning"  # Set the desired logging level for the notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
+unraid_level = "warning"  # Set the desired logging level for the notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
+webhook_level = ""  # Set the desired logging level for the notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
 
 webhook_url = ""  # Your webhook URL, leave empty for no notifications.
 webhook_headers = {} # Leave empty for Discord, otherwise edit it accordingly. (Slack example: "Content-Type": "application/json" "Authorization": "Bearer YOUR_SLACK_TOKEN" })
-webhook_level = ""  # Set the desired logging level for the notifications. Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
 
 settings_filename = os.path.join(script_folder, "plexcache_settings.json")
 watchlist_cache_file = Path(os.path.join(script_folder, "plexcache_watchlist_cache.json"))
@@ -125,20 +125,20 @@ logger.addHandler(handler)  # Add the file handler to the logger
 # Create and add the webhook handler to the logger
 if notification.lower() == "both" or notification.lower() == "unraid":
     unraid_handler = UnraidHandler()
-    if notification_level:
-        notification_level = notification_level.lower()
-        if notification_level == "debug":
+    if unraid_level:
+        unraid_level = unraid_level.lower()
+        if unraid_level == "debug":
             unraid_handler.setLevel(logging.DEBUG)
-        elif notification_level == "info":
+        elif unraid_level == "info":
             unraid_handler.setLevel(logging.INFO)
-        elif notification_level == "warning":
+        elif unraid_level == "warning":
             unraid_handler.setLevel(logging.WARNING)
-        elif notification_level == "error":
+        elif unraid_level == "error":
             unraid_handler.setLevel(logging.ERROR)
-        elif notification_level == "critical":
+        elif unraid_level == "critical":
             unraid_handler.setLevel(logging.CRITICAL)
         else:
-            print(f"Invalid notification_level: {notification_level}. Using default level: ERROR")
+            print(f"Invalid unraid_level: {unraid_level}. Using default level: ERROR")
             unraid_handler.setLevel(logging.ERROR)
     else:
         unraid_handler.setLevel(logging.ERROR)
