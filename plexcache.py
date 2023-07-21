@@ -22,7 +22,6 @@ webhook_level = "summary"
 # Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
 # You can also set it to "summary" and it will notify on error but also give you a short summary at the end of each run. 
 
-
 webhook_url = ""  # Your webhook URL, leave empty for no notifications.
 webhook_headers = {} # Leave empty for Discord, otherwise edit it accordingly. (Slack example: "Content-Type": "application/json" "Authorization": "Bearer YOUR_SLACK_TOKEN" })
 
@@ -32,6 +31,7 @@ watched_cache_file = Path(os.path.join(script_folder, "plexcache_watched_cache.j
 
 log_file_pattern = "plexcache_log_*.log"
 start_time = time.time()  # record start time
+summary_messages = []
 
 class UnraidHandler(logging.Handler):
     def __init__(self):
@@ -84,8 +84,9 @@ class WebhookHandler(logging.Handler):
             self.send_webhook_message(record)
 
     def send_summary_webhook_message(self, record):
+        summary = "Plex Cache Summary:\n" + record.msg
         payload = {
-            "content": record.msg
+            "content": summary
         }
         headers = {
             "Content-Type": "application/json"
@@ -244,6 +245,31 @@ if notification.lower() == "both" or notification.lower() == "unraid":
     else:
         unraid_handler.setLevel(logging.ERROR)
     logger.addHandler(unraid_handler)  # Add the unraid handler to the logger
+
+# Create and add the webhook handler to the logger
+if notification.lower() == "both" or notification.lower() == "webhook":
+    if webhook_url:
+        webhook_handler = WebhookHandler(webhook_url)
+        if webhook_level:
+            webhook_level = webhook_level.lower()
+            if webhook_level == "debug":
+                webhook_handler.setLevel(logging.DEBUG)
+            elif webhook_level == "info":
+                webhook_handler.setLevel(logging.INFO)
+            elif webhook_level == "warning":
+                webhook_handler.setLevel(logging.WARNING)
+            elif webhook_level == "error":
+                webhook_handler.setLevel(logging.ERROR)
+            elif webhook_level == "critical":
+                webhook_handler.setLevel(logging.CRITICAL)
+            elif unraid_level.lower() == "summary":
+                webhook_handler.setLevel(SUMMARY)
+            else:
+                print(f"Invalid webhook_level: {webhook_level}. Using default level: ERROR")
+                webhook_handler.setLevel(logging.ERROR)
+        else:
+            webhook_handler.setLevel(logging.ERROR)
+        logger.addHandler(webhook_handler)  # Add the webhook handler to the logger
 
 logging.info("*** PlexCache ***")
 
@@ -955,7 +981,7 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
     logging.info(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")  # Log the total size of media files
     if total_size > 0:  # If there are media files to be moved
         print(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")  # Print the total size of media files
-        summary_messages.append(f"Media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")
+        summary_messages.append(f"Media files to be moved to {destination}: {total_size:.2f} {total_size_unit}.\n")
         free_space, free_space_unit = get_free_space(destination == 'cache' and cache_dir or real_source)  # Get the free space on the destination drive
         print(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")  # Print the free space on the destination drive
         logging.info(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")  # Log the free space on the destination drive
@@ -969,7 +995,7 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
     else:
         print(f"Nothing to move to {destination}")  # If there are no media files to move, print a message
         logging.info(f"Nothing to move to {destination}")  # If there are no media files to move, log a message
-        logger.log(SUMMARY, f"Nothing to move to {destination}")
+        summary_messages.append(f"Nothing to move to {destination}.\n")
 
 # Function to check if given path exists, is a directory and the script has writing permissions
 def check_path_exists(path):
@@ -1092,7 +1118,7 @@ def execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_
             results = executor.map(move_file, move_commands)  # Move the files using multiple threads
             errors = [result for result in results if result != 0]  # Collect any non-zero error codes
             print(f"Finished moving files with {len(errors)} errors.")  # Print the number of errors encountered during file moves
-            logger.log(SUMMARY, f"Moved files with {len(errors)} errors.")
+            summary_messages.append(f"Moved files with {len(errors)} errors.\n")
 
 # Function to check if internet is available
 def is_connected():
@@ -1234,7 +1260,11 @@ except Exception as e:
 
 end_time = time.time()  # record end time
 execution_time = end_time - start_time  # calculate execution time
-logger.log(SUMMARY, f"Execution time of the script: {execution_time:.2f} seconds.")
+summary_messages.append(f"Execution time of the script: {execution_time:.2f} seconds. \n")
+
+summary_message = " ".join(summary_messages)
+logger.log(SUMMARY, summary_message)
+print(f"Execution time of the script: {execution_time:.2f} seconds.")
 logging.info(f"Execution time of the script: {execution_time:.2f} seconds.")
 
 print("Thank you for using bexem's script: \nhttps://github.com/bexem/PlexCache")
