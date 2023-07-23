@@ -15,10 +15,10 @@ logs_folder = script_folder # Change this if you want your logs in a different f
 log_level = "" # Set the desired logging level for webhook notifications. Defaults to INFO when left empty. (Options: debug, info, warning, error, critical)
 max_log_files = 5 # Maximum number of log files to keep
 
-notification = "system" # Unraid or Webhook, or Both; System instead will automatically switch to unraid if the scripts detects running on unraid
+notification = "system" # "Unraid" or "Webhook", or "Both"; "System" instead will automatically switch to unraid if the scripts detects running on unraid
 # Set the desired logging level for the notifications. 
-unraid_level = "summary"  
-webhook_level = "summary" 
+unraid_level = ""  
+webhook_level = ""
 # Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
 # You can also set it to "summary" and it will notify on error but also give you a short summary at the end of each run. 
 
@@ -32,8 +32,12 @@ watched_cache_file = Path(os.path.join(script_folder, "plexcache_watched_cache.j
 log_file_pattern = "plexcache_log_*.log"
 start_time = time.time()  # record start time
 summary_messages = []
+# Define a new level called SUMMARY that is equivalent to INFO level
+SUMMARY = logging.WARNING + 1
+logging.addLevelName(SUMMARY, 'SUMMARY')
 
 class UnraidHandler(logging.Handler):
+    SUMMARY = SUMMARY
     def __init__(self):
         super().__init__()
         self.notify_cmd_base = "/usr/local/emhttp/webGui/scripts/notify"
@@ -46,12 +50,12 @@ class UnraidHandler(logging.Handler):
         if self.notify_cmd_base:
             if record.levelno == SUMMARY:
                 self.send_summary_unraid_notification(record)
-            else:
+            else: 
                 self.send_unraid_notification(record)
 
     def send_summary_unraid_notification(self, record):
         icon = 'normal'
-        notify_cmd = f'{self.notify_cmd_base} -e "PlexCache: Summary" -s "{record.name}" -m "{record.msg}" -d "{record.msg}" -i "{icon}"'
+        notify_cmd = f'{self.notify_cmd_base} -e "PlexCache" -s "Summary" -d "{record.msg}" -i "{icon}"'
         subprocess.call(notify_cmd, shell=True)
 
     def send_unraid_notification(self, record):
@@ -67,12 +71,13 @@ class UnraidHandler(logging.Handler):
         icon = level_to_icon.get(record.levelname, 'normal')  # default to 'normal' if levelname is not found in the dictionary
 
         # Prepare the command with necessary arguments
-        notify_cmd = f'{self.notify_cmd_base} -e "{record.levelname}" -s "{record.name}" -m "{record.msg}"  -d "{record.msg}" -i "{icon}"'
+        notify_cmd = f'{self.notify_cmd_base} -e "PlexCache" -s "{record.levelname}" -d "{record.msg}" -i "{icon}"'
 
         # Execute the command
         subprocess.call(notify_cmd, shell=True)
 
 class WebhookHandler(logging.Handler):
+    SUMMARY = SUMMARY
     def __init__(self, webhook_url):
         super().__init__()
         self.webhook_url = webhook_url
@@ -92,9 +97,7 @@ class WebhookHandler(logging.Handler):
             "Content-Type": "application/json"
         }
         response = requests.post(self.webhook_url, data=json.dumps(payload), headers=headers)
-        if response.status_code == 204:
-            print("Summary message sent successfully")
-        else:
+        if not response.status_code == 204:
             print(f"Failed to send summary message. Error code: {response.status_code}")
 
     def send_webhook_message(self, record):
@@ -105,9 +108,7 @@ class WebhookHandler(logging.Handler):
             "Content-Type": "application/json"
         }
         response = requests.post(self.webhook_url, data=json.dumps(payload), headers=headers)
-        if response.status_code == 204:
-            print("Message sent successfully")
-        else:
+        if not response.status_code == 204:
             print(f"Failed to send message. Error code: {response.status_code}")
 
 def check_and_create_folder(folder):
@@ -151,10 +152,6 @@ if log_level:
 handler = RotatingFileHandler(log_file, maxBytes=20*1024*1024, backupCount=max_log_files)  # Create a rotating file handler
 handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))  # Set the log message format
 logger.addHandler(handler)  # Add the file handler to the logger
-
-# Define a new level called SUMMARY that is equivalent to INFO level
-SUMMARY = logging.INFO + 1
-logging.addLevelName(SUMMARY, 'SUMMARY')
 
 # Create or update the symbolic link to the latest log file
 if os.path.exists(latest_log_file):
@@ -262,7 +259,7 @@ if notification.lower() == "both" or notification.lower() == "webhook":
                 webhook_handler.setLevel(logging.ERROR)
             elif webhook_level == "critical":
                 webhook_handler.setLevel(logging.CRITICAL)
-            elif unraid_level.lower() == "summary":
+            elif webhook_level.lower() == "summary":
                 webhook_handler.setLevel(SUMMARY)
             else:
                 print(f"Invalid webhook_level: {webhook_level}. Using default level: ERROR")
