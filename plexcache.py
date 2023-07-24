@@ -22,7 +22,7 @@ webhook_level = ""
 # Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
 # You can also set it to "summary" and it will notify on error but also give you a short summary at the end of each run. 
 
-webhook_url = "https://discord.com/api/webhooks/1120144028000866314/fFgCyWlvZNPBJpmXPQ7Byvuci30CyLdLUHBWX5YsHT3OrB-G5ZlQ_5whCSQPOkVmRdr8"  # Your webhook URL, leave empty for no notifications.
+webhook_url = ""  # Your webhook URL, leave empty for no notifications.
 webhook_headers = {} # Leave empty for Discord, otherwise edit it accordingly. (Slack example: "Content-Type": "application/json" "Authorization": "Bearer YOUR_SLACK_TOKEN" })
 
 settings_filename = os.path.join(script_folder, "plexcache_settings.json")
