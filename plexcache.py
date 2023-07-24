@@ -1295,7 +1295,7 @@ execution_time = convert_time(execution_time_seconds)
 if not files_moved:
     summary_messages.append("There were no files to move to any destination.")
 
-summary_messages.append(f"The entire script took approximately {execution_time} to execute.")
+summary_messages.append(f"The script took approximately {execution_time} to execute.")
 summary_message = '  '.join(summary_messages)
 
 logger.log(SUMMARY, summary_message)
