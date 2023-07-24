@@ -17,12 +17,12 @@ max_log_files = 5 # Maximum number of log files to keep
 
 notification = "system" # "Unraid" or "Webhook", or "Both"; "System" instead will automatically switch to unraid if the scripts detects running on unraid
 # Set the desired logging level for the notifications. 
-unraid_level = ""  
-webhook_level = ""
+unraid_level = "summary"  
+webhook_level = "" 
 # Leave empty for notifications only on ERROR. (Options: debug, info, warning, error, critical)
 # You can also set it to "summary" and it will notify on error but also give you a short summary at the end of each run. 
 
-webhook_url = ""  # Your webhook URL, leave empty for no notifications.
+webhook_url = "https://discord.com/api/webhooks/1120144028000866314/fFgCyWlvZNPBJpmXPQ7Byvuci30CyLdLUHBWX5YsHT3OrB-G5ZlQ_5whCSQPOkVmRdr8"  # Your webhook URL, leave empty for no notifications.
 webhook_headers = {} # Leave empty for Discord, otherwise edit it accordingly. (Slack example: "Content-Type": "application/json" "Authorization": "Bearer YOUR_SLACK_TOKEN" })
 
 settings_filename = os.path.join(script_folder, "plexcache_settings.json")
@@ -30,11 +30,13 @@ watchlist_cache_file = Path(os.path.join(script_folder, "plexcache_watchlist_cac
 watched_cache_file = Path(os.path.join(script_folder, "plexcache_watched_cache.json"))
 
 log_file_pattern = "plexcache_log_*.log"
-start_time = time.time()  # record start time
 summary_messages = []
+summary_files_flag = 0
 # Define a new level called SUMMARY that is equivalent to INFO level
 SUMMARY = logging.WARNING + 1
 logging.addLevelName(SUMMARY, 'SUMMARY')
+
+start_time = time.time()  # record start time
 
 class UnraidHandler(logging.Handler):
     SUMMARY = SUMMARY
@@ -267,6 +269,18 @@ if notification.lower() == "both" or notification.lower() == "webhook":
         else:
             webhook_handler.setLevel(logging.ERROR)
         logger.addHandler(webhook_handler)  # Add the webhook handler to the logger
+
+files_moved = False
+def construct_summary_message(destination, total_size, total_size_unit):
+    global files_moved
+    # Check if total_size is None or zero
+    if not total_size or total_size == 0:
+        return ""
+    else:
+        # Construct the summary message
+        summary_messages = (f"The total size of media files moved to {destination} is {total_size:.2f} {total_size_unit}.")
+        files_moved = True  # Update the flag
+        return summary_message
 
 logging.info("*** PlexCache ***")
 
@@ -978,7 +992,7 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
     logging.info(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")  # Log the total size of media files
     if total_size > 0:  # If there are media files to be moved
         print(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")  # Print the total size of media files
-        summary_messages.append(f"Media files to be moved to {destination}: {total_size:.2f} {total_size_unit}.\n")
+        summary_messages.append(construct_summary_message(destination, total_size, total_size_unit))
         free_space, free_space_unit = get_free_space(destination == 'cache' and cache_dir or real_source)  # Get the free space on the destination drive
         print(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")  # Print the free space on the destination drive
         logging.info(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")  # Log the free space on the destination drive
@@ -992,7 +1006,7 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
     else:
         print(f"Nothing to move to {destination}")  # If there are no media files to move, print a message
         logging.info(f"Nothing to move to {destination}")  # If there are no media files to move, log a message
-        summary_messages.append(f"Nothing to move to {destination}.\n")
+        summary_messages.append(construct_summary_message(destination, total_size, total_size_unit))
 
 # Function to check if given path exists, is a directory and the script has writing permissions
 def check_path_exists(path):
@@ -1115,7 +1129,26 @@ def execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_
             results = executor.map(move_file, move_commands)  # Move the files using multiple threads
             errors = [result for result in results if result != 0]  # Collect any non-zero error codes
             print(f"Finished moving files with {len(errors)} errors.")  # Print the number of errors encountered during file moves
-            summary_messages.append(f"Moved files with {len(errors)} errors.\n")
+            logging.warning(f"Finished moving files with {len(errors)} errors.")
+
+def convert_time(execution_time_seconds):
+    # Calculate days, hours, minutes, and seconds
+    days, remainder = divmod(execution_time_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    # Create a human-readable string for the result
+    result_str = ""
+    if days > 0:
+        result_str += f"{int(days)} day{'s' if days > 1 else ''}, "
+    if hours > 0:
+        result_str += f"{int(hours)} hour{'s' if hours > 1 else ''}, "
+    if minutes > 0:
+        result_str += f"{int(minutes)} minute{'s' if minutes > 1 else ''}, "
+    if seconds > 0:
+        result_str += f"{seconds:.2f} second{'s' if seconds > 1 else ''}"
+
+    return result_str.rstrip(", ")
 
 # Function to check if internet is available
 def is_connected():
@@ -1256,13 +1289,19 @@ except Exception as e:
     exit(f"Error: {str(e)}")
 
 end_time = time.time()  # record end time
-execution_time = end_time - start_time  # calculate execution time
-summary_messages.append(f"Execution time of the script: {execution_time:.2f} seconds. \n")
+execution_time_seconds = end_time - start_time  # calculate execution time
+execution_time = convert_time(execution_time_seconds)
 
-summary_message = " ".join(summary_messages)
+if not files_moved:
+    summary_messages.append("There were no files to move to any destination.")
+
+summary_messages.append(f"The entire script took approximately {execution_time} to execute.")
+summary_message = '  '.join(summary_messages)
+
 logger.log(SUMMARY, summary_message)
-print(f"Execution time of the script: {execution_time:.2f} seconds.")
-logging.info(f"Execution time of the script: {execution_time:.2f} seconds.")
+
+print(f"Execution time of the script: {execution_time}")
+logging.info(f"Execution time of the script: {execution_time}")
 
 print("Thank you for using bexem's script: \nhttps://github.com/bexem/PlexCache")
 logging.info("Thank you for using bexem's script: https://github.com/bexem/PlexCache")
