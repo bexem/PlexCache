@@ -31,13 +31,12 @@ watched_cache_file = Path(os.path.join(script_folder, "plexcache_watched_cache.j
 
 log_file_pattern = "plexcache_log_*.log"
 summary_messages = []
-summary_files_flag = 0
+files_moved = False
 # Define a new level called SUMMARY that is equivalent to INFO level
 SUMMARY = logging.WARNING + 1
 logging.addLevelName(SUMMARY, 'SUMMARY')
 
 start_time = time.time()  # record start time
-files_moved = False
 
 class UnraidHandler(logging.Handler):
     SUMMARY = SUMMARY
