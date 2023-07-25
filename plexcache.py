@@ -37,6 +37,7 @@ SUMMARY = logging.WARNING + 1
 logging.addLevelName(SUMMARY, 'SUMMARY')
 
 start_time = time.time()  # record start time
+files_moved = False
 
 class UnraidHandler(logging.Handler):
     SUMMARY = SUMMARY
@@ -269,18 +270,6 @@ if notification.lower() == "both" or notification.lower() == "webhook":
         else:
             webhook_handler.setLevel(logging.ERROR)
         logger.addHandler(webhook_handler)  # Add the webhook handler to the logger
-
-files_moved = False
-def construct_summary_message(destination, total_size, total_size_unit):
-    global files_moved
-    # Check if total_size is None or zero
-    if not total_size or total_size == 0:
-        return ""
-    else:
-        # Construct the summary message
-        summary_messages = (f"The total size of media files moved to {destination} is {total_size:.2f} {total_size_unit}.")
-        files_moved = True  # Update the flag
-        return summary_message
 
 logging.info("*** PlexCache ***")
 
@@ -987,12 +976,17 @@ def should_add_to_cache(cache_file_name):
 
 # Check for free space before executing moving process
 def check_free_space_and_move_files(media_files, destination, real_source, cache_dir, unraid, debug):
+    global files_moved, summary_messages
     media_files_filtered = filter_files(media_files, destination, real_source, cache_dir, media_to_cache, files_to_skip)  # Filter the media files based on certain criteria
     total_size, total_size_unit = get_total_size_of_files(media_files_filtered)  # Get the total size of the filtered media files
-    logging.info(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")  # Log the total size of media files
     if total_size > 0:  # If there are media files to be moved
+        logging.info(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")  # Log the total size of media files
         print(f"Total size of media files to be moved to {destination}: {total_size:.2f} {total_size_unit}")  # Print the total size of media files
-        summary_messages.append(construct_summary_message(destination, total_size, total_size_unit))
+        if files_moved:
+            summary_messages.append(f"Total size of media files moved to {destination}: {total_size:.2f} {total_size_unit}")
+        else:
+            summary_messages = [f"Total size of media files moved to {destination}: {total_size:.2f} {total_size_unit}"]
+            files_moved = True
         free_space, free_space_unit = get_free_space(destination == 'cache' and cache_dir or real_source)  # Get the free space on the destination drive
         print(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")  # Print the free space on the destination drive
         logging.info(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")  # Log the free space on the destination drive
@@ -1006,7 +1000,10 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
     else:
         print(f"Nothing to move to {destination}")  # If there are no media files to move, print a message
         logging.info(f"Nothing to move to {destination}")  # If there are no media files to move, log a message
-        summary_messages.append(construct_summary_message(destination, total_size, total_size_unit))
+        if not files_moved:
+            summary_messages = ["There were no files to move to any destination."]
+        else:
+            summary_messages.append("")
 
 # Function to check if given path exists, is a directory and the script has writing permissions
 def check_path_exists(path):
@@ -1291,9 +1288,6 @@ except Exception as e:
 end_time = time.time()  # record end time
 execution_time_seconds = end_time - start_time  # calculate execution time
 execution_time = convert_time(execution_time_seconds)
-
-if not files_moved:
-    summary_messages.append("There were no files to move to any destination.")
 
 summary_messages.append(f"The script took approximately {execution_time} to execute.")
 summary_message = '  '.join(summary_messages)
