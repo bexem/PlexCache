@@ -1125,7 +1125,7 @@ def execute_move_commands(debug, move_commands, max_concurrent_moves_array, max_
             results = executor.map(move_file, move_commands)  # Move the files using multiple threads
             errors = [result for result in results if result != 0]  # Collect any non-zero error codes
             print(f"Finished moving files with {len(errors)} errors.")  # Print the number of errors encountered during file moves
-            logging.warning(f"Finished moving files with {len(errors)} errors.")
+            logging.info(f"Finished moving files with {len(errors)} errors.")
 
 def convert_time(execution_time_seconds):
     # Calculate days, hours, minutes, and seconds
