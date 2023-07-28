@@ -898,6 +898,9 @@ def convert_bytes_to_readable_size(size_bytes):
 
 # Function to check for free space
 def get_free_space(dir):
+    if not os.path.exists(dir):
+        logging.error(f"Invalid path, unable to calculate free space for: {dir}.")
+        return 0
     stat = os.statvfs(dir)  # Get the file system statistics for the specified directory
     free_space_bytes = stat.f_bfree * stat.f_frsize  # Calculate the free space in bytes
     return convert_bytes_to_readable_size(free_space_bytes)  # Convert the free space to a human-readable format
@@ -988,11 +991,12 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
         logging.info(f"Free space on the {destination}: {free_space:.2f} {free_space_unit}")  # Log the free space on the destination drive
         if total_size * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[total_size_unit]) > free_space * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[free_space_unit]):
             # If the total size of media files is greater than the free space on the destination drive
-            logging.critical(f"Not enough space on {destination} drive..")
             if not debug:
                 exit(f"Not enough space on {destination} drive.")
+                logging.critical(f"Not enough space on {destination} drive..")
             else:
                 print(f"Not enough space on {destination} drive.")
+                logging.error(f"Not enough space on {destination} drive..")
         logging.info(f"Moving media to {destination}...")  # Log the start of the media moving process
         print(f"Moving media to {destination}...")  # Print the start of the media moving process
         move_media_files(media_files_filtered, real_source, cache_dir, unraid, debug, destination, max_concurrent_moves_array, max_concurrent_moves_cache)  # Move the media files to the destination
@@ -1274,20 +1278,22 @@ if watched_move:
         # Check free space and move files
         check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug)
     except Exception as e:
-        logging.critical(f"Error checking free space and moving media files to the array: {str(e)}")
         if not debug:
+            logging.critical(f"Error checking free space and moving media files to the cache: {str(e)}")
             exit(f"Error: {str(e)}")
         else:
+            logging.error(f"Error checking free space and moving media files to the cache: {str(e)}")
             print(f"Error: {str(e)}")
 
 # Moving the files to the cache drive
 try:
     check_free_space_and_move_files(media_to_cache, 'cache', real_source, cache_dir, unraid, debug)
 except Exception as e:
-    logging.critical(f"Error checking free space and moving media files to the cache: {str(e)}")
     if not debug:
+        logging.critical(f"Error checking free space and moving media files to the cache: {str(e)}")
         exit(f"Error: {str(e)}")
     else:
+        logging.error(f"Error checking free space and moving media files to the cache: {str(e)}")
         print(f"Error: {str(e)}")
 
 end_time = time.time()  # record end time
