@@ -838,47 +838,44 @@ def modify_file_paths(files, plex_source, real_source, plex_library_folders, nas
     # Return the modified file paths or an empty list
     return files or []
 
-# Function to fetch the subtitles
-def get_media_subtitles(media_files, files_to_skip=None):
-    print("Fetching subtitles...")  # Print a message indicating that the subtitles are being fetched
-    logging.info("Fetching subtitles...")  # Log a message indicating that the subtitles are being fetched
-    if files_to_skip is None:
-        files_to_skip = set()  # Create an empty set to store files that should be skipped
-    processed_files = set()  # Create an empty set to store files that have been processed
-    all_media_files = media_files.copy()  # Create a copy of the media_files list
-    previous_directory_path = None  # Variable to store the previously logged directory path
-
-    for file in media_files:  # Iterate over each file in the media_files list
-        if file in files_to_skip or file in processed_files:  # Check if the file should be skipped (based on files_to_skip set) or if it has already been processed
-            continue  # Skip to the next iteration of the loop
-        processed_files.add(file)  # Add the file to the set of processed files
-        directory_path = os.path.dirname(file)  # Get the directory path of the current file
-        if directory_path != previous_directory_path:  # Check if the directory path has changed from the previous iteration
-            previous_directory_path = directory_path  # Update the previous directory path with the current directory path
-        if os.path.exists(directory_path):  # Check if the directory path exists
-            subtitle_files = find_subtitle_files(directory_path, file)  # Find subtitle files in the directory for the current media file
-            all_media_files.extend(subtitle_files)  # Add the subtitle files to the all_media_files list
-            for subtitle_file in subtitle_files:  # Iterate over each subtitle file
-                logging.info(f"Subtitle found: {subtitle_file}")  # Log a message indicating that a subtitle file has been found
-
-    return all_media_files or []  # Return the all_media_files list if it is not empty, otherwise return an empty list
-
-# Find the subtitles for the given files
-def find_subtitle_files(directory_path, file):
-    # Extract the file name and extension
-    file_name, file_ext = os.path.splitext(os.path.basename(file))
+def get_media_subtitles(media_files, files_to_skip=None, subtitle_extensions=[".srt", ".vtt", ".sbv", ".sub", ".idx"]):
+    print("Fetching subtitles...") 
+    logging.info("Fetching subtitles...")
     
-    # Get the list of files in the directory
-    files_in_dir = os.listdir(directory_path)
+    files_to_skip = set() if files_to_skip is None else set(files_to_skip)
+    processed_files = set()
+    all_media_files = media_files.copy()
     
-    # Find subtitle files that match the file name, excluding the original file
-    subtitle_files = [
-        os.path.join(directory_path, f)
-        for f in files_in_dir
-        if f.startswith(file_name) and f != file_name + file_ext
-    ]
+    for file in media_files:
+        if file in files_to_skip or file in processed_files:
+            continue
+        processed_files.add(file)
+        
+        directory_path = os.path.dirname(file)
+        if os.path.exists(directory_path): 
+            subtitle_files = find_subtitle_files(directory_path, file, subtitle_extensions)  
+            all_media_files.extend(subtitle_files)  
+            for subtitle_file in subtitle_files:  
+                logging.info(f"Subtitle found: {subtitle_file}")  
     
-    # Return the list of subtitle files, or an empty list if none found
+    return all_media_files or []
+
+def find_subtitle_files(directory_path, file, subtitle_extensions):
+    file_name, _ = os.path.splitext(os.path.basename(file))
+
+    try:
+        subtitle_files = [
+            entry.path
+            for entry in os.scandir(directory_path)
+            if entry.is_file() and entry.name.startswith(file_name) and entry.name != file and entry.name.endswith(tuple(subtitle_extensions))
+        ]
+    except PermissionError as e:
+        logging.error(f"Cannot access directory {directory_path}. Permission denied. Error: {e}")
+        subtitle_files = []
+    except OSError as e:
+        logging.error(f"Cannot access directory {directory_path}. Error: {e}")
+        subtitle_files = []
+
     return subtitle_files or []
 
 # Function to convert size to readable format
@@ -992,7 +989,10 @@ def check_free_space_and_move_files(media_files, destination, real_source, cache
         if total_size * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[total_size_unit]) > free_space * (1024 ** {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}[free_space_unit]):
             # If the total size of media files is greater than the free space on the destination drive
             logging.critical(f"Not enough space on {destination} drive..")
-            exit(f"Not enough space on {destination} drive.")
+            if not debug:
+                exit(f"Not enough space on {destination} drive.")
+            else:
+                print(f"Not enough space on {destination} drive.")
         logging.info(f"Moving media to {destination}...")  # Log the start of the media moving process
         print(f"Moving media to {destination}...")  # Print the start of the media moving process
         move_media_files(media_files_filtered, real_source, cache_dir, unraid, debug, destination, max_concurrent_moves_array, max_concurrent_moves_cache)  # Move the media files to the destination
@@ -1275,14 +1275,20 @@ if watched_move:
         check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug)
     except Exception as e:
         logging.critical(f"Error checking free space and moving media files to the array: {str(e)}")
-        exit(f"Error: {str(e)}")
+        if not debug:
+            exit(f"Error: {str(e)}")
+        else:
+            print(f"Error: {str(e)}")
 
 # Moving the files to the cache drive
 try:
     check_free_space_and_move_files(media_to_cache, 'cache', real_source, cache_dir, unraid, debug)
 except Exception as e:
     logging.critical(f"Error checking free space and moving media files to the cache: {str(e)}")
-    exit(f"Error: {str(e)}")
+    if not debug:
+        exit(f"Error: {str(e)}")
+    else:
+        print(f"Error: {str(e)}")
 
 end_time = time.time()  # record end time
 execution_time_seconds = end_time - start_time  # calculate execution time
