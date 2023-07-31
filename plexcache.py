@@ -1146,7 +1146,7 @@ def convert_time(execution_time_seconds):
     if minutes > 0:
         result_str += f"{int(minutes)} minute{'s' if minutes > 1 else ''}, "
     if seconds > 0:
-        result_str += f"{seconds:.2f} second{'s' if seconds > 1 else ''}"
+        result_str += f"{int(seconds)} second{'s' if seconds > 1 else ''}"
 
     return result_str.rstrip(", ")
 
