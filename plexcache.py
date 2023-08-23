@@ -639,7 +639,7 @@ def search_plex(plex, title):
 def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle, skip_watchlist):
     def get_watchlist(token, user=None):
         # Retrieve the watchlist for the specified user's token
-        account = MyPlexAccount(token)
+        account = MyPlexAccount(token=token)
         if user:
             account = account.switchHomeUser(user.title)
         return account.watchlist(filter='released')
