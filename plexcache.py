@@ -7,6 +7,7 @@ from plexapi.server import PlexServer
 from plexapi.video import Episode
 from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
+from time import sleep
 
 print("*** PlexCache ***")
 
@@ -637,11 +638,20 @@ def search_plex(plex, title):
     return results[0] if len(results) > 0 else None
 
 def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle, skip_watchlist):
+
+    RETRY_LIMIT = 3
+    DELAY = 5  # in seconds
+
     def get_watchlist(token, user=None):
         # Retrieve the watchlist for the specified user's token
         account = MyPlexAccount(token=token)
         if user:
-            account = account.switchHomeUser(user.title)
+            if user.username:
+                currrent_user = user.username
+            else:
+                currrent_user = user.title
+            print(currrent_user)
+            account = account.switchHomeUser(currrent_user)
         return account.watchlist(filter='released')
 
     def process_show(file, watchlist_episodes):
@@ -662,6 +672,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
     def fetch_user_watchlist(user):
         current_username = plex.myPlexAccount().title if user is None else user.title
         
+
         # Get all sections available for the user
         available_sections = [section.key for section in plex.library.sections()]
         # Intersect available_sections and valid_sections
@@ -676,6 +687,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
         print(f"Fetching {current_username}'s watchlist media...")
         logging.info(f"Fetching {current_username}'s watchlist media...")
         try:
+            #user_token = user.get_token(plex.machineIdentifier)
             watchlist = get_watchlist(PLEX_TOKEN, user)
             results = []
 
@@ -700,11 +712,21 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {executor.submit(fetch_user_watchlist, user) for user in users_to_fetch}
         for future in as_completed(futures):
-            try:
-                yield from future.result()
-            except Exception as e:
-                print(f"Error fetching watchlist media: {str(e)}")
-                logging.error(f"Error fetching watchlist media: {str(e)}")
+            retries = 0
+            while retries < RETRY_LIMIT:
+                try:
+                    yield from future.result()
+                    break
+                except Exception as e:
+                    if "429" in str(e):  # rate limit error
+                        print(f"Rate limit exceeded. Retrying in {DELAY} seconds...")
+                        sleep(DELAY)
+                        retries += 1
+                    else:
+                        print(f"Error fetching watchlist media: {str(e)}")
+                        logging.error(f"Error fetching watchlist media: {str(e)}")
+                        break
+                
 
 # Function to fetch watched media files
 def get_watched_media(plex, valid_sections, last_updated, user=None):
