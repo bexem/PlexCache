@@ -647,11 +647,11 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
         # Retrieve the watchlist for the specified user's token
         account = MyPlexAccount(token=token)
         if user:
-        try:
-            account = account.switchHomeUser('{user.title}')
-        except NotFound:
-            print(f"Failed to switch to user {user.title}. Skipping...")
-            return []
+            try:
+                account = account.switchHomeUser(f'{user.title}')
+            except NotFound:
+                print(f"Failed to switch to user {user.title}. Skipping...")
+                return []
         return account.watchlist(filter='released')
 
     def process_show(file, watchlist_episodes):
