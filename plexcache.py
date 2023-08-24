@@ -652,7 +652,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
         except (BadRequest, NotFound) as e:
             if "429" in str(e):  # Rate limit exceeded
                 logging.warning("Rate limit exceeded. Sleeping for 60 seconds...")
-                time.sleep(60)
+                time.sleep(15)
                 return get_watchlist(token, user)
             elif isinstance(e, NotFound):
                 logging.warning(f"Failed to switch to user {user.title if user else 'Unknown'}. Skipping...")
