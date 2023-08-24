@@ -642,23 +642,25 @@ def search_plex(plex, title):
     return results[0] if len(results) > 0 else None
 
 def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle, skip_watchlist):
-    def get_watchlist(token, user=None):
-        #Retrieve the watchlist for the specified user's token.
+
+    def get_watchlist(token, user=None, retries=0):
+        # Retrieve the watchlist for the specified user's token.
         account = MyPlexAccount(token=token)
         try:
             if user:
                 account = account.switchHomeUser(f'{user.title}')
             return account.watchlist(filter='released')
         except (BadRequest, NotFound) as e:
-            if "429" in str(e):  # Rate limit exceeded
-                logging.warning("Rate limit exceeded. Sleeping for 60 seconds...")
+            if "429" in str(e) and retries < RETRY_LIMIT:  # Rate limit exceeded
+                logging.warning(f"Rate limit exceeded. Retrying {retries + 1}/{RETRY_LIMIT}. Sleeping for 60 seconds...")
                 time.sleep(15)
-                return get_watchlist(token, user)
+                return get_watchlist(token, user, retries + 1)
             elif isinstance(e, NotFound):
                 logging.warning(f"Failed to switch to user {user.title if user else 'Unknown'}. Skipping...")
                 return []
             else:
                 raise e
+
 
     def process_show(file, watchlist_episodes):
         #Process episodes of a TV show file up to a specified number.
