@@ -1302,9 +1302,14 @@ if watched_move:
             logging.error(f"Error checking free space and moving media files to the cache: {str(e)}")
             print(f"Error: {str(e)}")
 
+
 # Moving the files to the cache drive
 try:
     check_free_space_and_move_files(media_to_cache, 'cache', real_source, cache_dir, unraid, debug)
+    if debug: 
+        logging.info("Listing all files destined to cache")
+        for file in media_to_cache:
+            logging.info(file)
 except Exception as e:
     if not debug:
         logging.critical(f"Error checking free space and moving media files to the cache: {str(e)}")
