@@ -1179,6 +1179,15 @@ def is_connected():
 for path in [real_source, cache_dir]:
     check_path_exists(path)
 
+# Fetch OnDeck Media
+media_to_cache.extend(fetch_on_deck_media_main(plex, valid_sections, days_to_monitor, number_episodes, users_toggle, skip_ondeck))
+
+# Edit file paths for the above fetched media
+media_to_cache = modify_file_paths(media_to_cache, plex_source, real_source, plex_library_folders, nas_library_folders)
+
+# Fetches subtitles for the above fetched media
+media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to_skip))
+
 # Watchlist logic:
 # It will check if there is internet connection as plexapi requires to use a method which uses their server rather than plex
 # If internet is not available or the cache is within the expiry date, it will use the cached file.
@@ -1237,15 +1246,6 @@ if watchlist_toggle:
         print("An error occurred while processing the watchlist.")
         logging.error("An error occurred while processing the watchlist: %s", str(e))
 
-# Fetch OnDeck Media
-media_to_cache.extend(fetch_on_deck_media_main(plex, valid_sections, days_to_monitor, number_episodes, users_toggle, skip_ondeck))
-
-# Edit file paths for the above fetched media
-media_to_cache = modify_file_paths(media_to_cache, plex_source, real_source, plex_library_folders, nas_library_folders)
-
-# Fetches subtitles for the above fetched media
-media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to_skip))
-
 # Watched media logic
 if watched_move:
     try:
@@ -1287,7 +1287,7 @@ if watched_move:
             media_to_array.extend(watched_media_set)
 
     except Exception as e:
-        # Handle any exceptions that occur while processing the watchlist
+        # Handle any exceptions that occur while processing the watched media
         print("An error occurred while processing the watched media.")
         logging.error("An error occurred while processing the watched media: %s", str(e))
 
