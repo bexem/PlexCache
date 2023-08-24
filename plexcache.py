@@ -32,7 +32,7 @@ watchlist_cache_file = Path(os.path.join(script_folder, "plexcache_watchlist_cac
 watched_cache_file = Path(os.path.join(script_folder, "plexcache_watched_cache.json"))
 
 RETRY_LIMIT = 3
-DELAY = 5  # in seconds
+DELAY = 15  # in seconds
 
 log_file_pattern = "plexcache_log_*.log"
 summary_messages = []
@@ -652,8 +652,8 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
             return account.watchlist(filter='released')
         except (BadRequest, NotFound) as e:
             if "429" in str(e) and retries < RETRY_LIMIT:  # Rate limit exceeded
-                logging.warning(f"Rate limit exceeded. Retrying {retries + 1}/{RETRY_LIMIT}. Sleeping for 60 seconds...")
-                time.sleep(15)
+                logging.warning(f"Rate limit exceeded. Retrying {retries + 1}/{RETRY_LIMIT}. Sleeping for {DELAY} seconds...")
+                time.sleep(DELAY)
                 return get_watchlist(token, user, retries + 1)
             elif isinstance(e, NotFound):
                 logging.warning(f"Failed to switch to user {user.title if user else 'Unknown'}. Skipping...")
@@ -673,8 +673,9 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
                     yield episode.media[0].parts[0].file
 
     def process_movie(file):
-        """Process a movie file."""
-        yield file.media[0].parts[0].file
+        #Process a movie file.
+        if not file.isPlayed:
+            yield file.media[0].parts[0].file
 
     def fetch_user_watchlist(user):
         current_username = plex.myPlexAccount().title if user is None else user.title
