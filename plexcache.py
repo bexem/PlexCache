@@ -1,4 +1,4 @@
-import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re, requests, subprocess, time
+import os, json, logging, glob, socket, platform, shutil, ntpath, posixpath, re, requests, subprocess, time, sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
@@ -1189,6 +1189,8 @@ media_to_cache = modify_file_paths(media_to_cache, plex_source, real_source, ple
 # Fetches subtitles for the above fetched media
 media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to_skip))
 
+skip_cache = "--skip-cache" in sys.argv
+
 # Watchlist logic:
 # It will check if there is internet connection as plexapi requires to use a method which uses their server rather than plex
 # If internet is not available or the cache is within the expiry date, it will use the cached file.
@@ -1202,7 +1204,7 @@ if watchlist_toggle:
             # To fetch the watchlist media, internet connection is required due to a plexapi limitation
 
             # Check if the cache file doesn't exist, debug mode is enabled, or cache has expired
-            if (not watchlist_cache_file.exists()) or (debug) or (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) > timedelta(hours=watchlist_cache_expiry)):
+            if skip_cache or (not watchlist_cache_file.exists()) or (debug) or (datetime.now() - datetime.fromtimestamp(watchlist_cache_file.stat().st_mtime) > timedelta(hours=watchlist_cache_expiry)):
                 print("Fetching watchlist media...")
                 logging.info("Fetching watchlist media...")
 
@@ -1255,7 +1257,7 @@ if watched_move:
         current_media_set = set()
 
         # Check if cache file doesn't exist or debug mode is enabled
-        if not watched_cache_file.exists() or debug or (datetime.now() - datetime.fromtimestamp(watched_cache_file.stat().st_mtime) > timedelta(hours=watched_cache_expiry)):
+        if skip_cache or not watched_cache_file.exists() or debug or (datetime.now() - datetime.fromtimestamp(watched_cache_file.stat().st_mtime) > timedelta(hours=watched_cache_expiry)):
             print("Fetching watched media...")
             logging.info("Fetching watched media...")
 
