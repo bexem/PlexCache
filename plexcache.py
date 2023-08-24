@@ -7,6 +7,7 @@ from plexapi.server import PlexServer
 from plexapi.video import Episode
 from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
+from plexapi.exceptions import NotFound
 from time import sleep
 
 print("*** PlexCache ***")
@@ -646,12 +647,11 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
         # Retrieve the watchlist for the specified user's token
         account = MyPlexAccount(token=token)
         if user:
-            if user.username:
-                currrent_user = user.username
-            else:
-                currrent_user = user.title
-            print(currrent_user)
-            account = account.switchHomeUser(currrent_user)
+        try:
+            account = account.switchHomeUser('{user.title}')
+        except NotFound:
+            print(f"Failed to switch to user {user.title}. Skipping...")
+            return []
         return account.watchlist(filter='released')
 
     def process_show(file, watchlist_episodes):
