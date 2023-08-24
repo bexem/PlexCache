@@ -8,7 +8,7 @@ from plexapi.video import Episode
 from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
 from plexapi.exceptions import NotFound
-from time import sleep
+from plexapi.exceptions import BadRequest
 
 print("*** PlexCache ***")
 
@@ -30,6 +30,9 @@ webhook_headers = {} # Leave empty for Discord, otherwise edit it accordingly. (
 settings_filename = os.path.join(script_folder, "plexcache_settings.json")
 watchlist_cache_file = Path(os.path.join(script_folder, "plexcache_watchlist_cache.json"))
 watched_cache_file = Path(os.path.join(script_folder, "plexcache_watched_cache.json"))
+
+RETRY_LIMIT = 3
+DELAY = 5  # in seconds
 
 log_file_pattern = "plexcache_log_*.log"
 summary_messages = []
@@ -639,73 +642,65 @@ def search_plex(plex, title):
     return results[0] if len(results) > 0 else None
 
 def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle, skip_watchlist):
-
-    RETRY_LIMIT = 3
-    DELAY = 5  # in seconds
-
     def get_watchlist(token, user=None):
-        # Retrieve the watchlist for the specified user's token
+        #Retrieve the watchlist for the specified user's token.
         account = MyPlexAccount(token=token)
-        if user:
-            try:
+        try:
+            if user:
                 account = account.switchHomeUser(f'{user.title}')
-            except NotFound:
-                print(f"Failed to switch to user {user.title}. Skipping...")
+            return account.watchlist(filter='released')
+        except (BadRequest, NotFound) as e:
+            if "429" in str(e):  # Rate limit exceeded
+                logging.warning("Rate limit exceeded. Sleeping for 60 seconds...")
+                time.sleep(60)
+                return get_watchlist(token, user)
+            elif isinstance(e, NotFound):
+                logging.warning(f"Failed to switch to user {user.title if user else 'Unknown'}. Skipping...")
                 return []
-        return account.watchlist(filter='released')
+            else:
+                raise e
 
     def process_show(file, watchlist_episodes):
-        # Process episodes of a TV show file up to a specified number
+        #Process episodes of a TV show file up to a specified number.
         episodes = file.episodes()
         count = 0
-        if count <= watchlist_episodes:
-            for episode in episodes[:watchlist_episodes]:
-                if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
-                    count += 1
-                    if not episode.isPlayed:
-                        yield episode.media[0].parts[0].file
+        for episode in episodes[:watchlist_episodes]:
+            if len(episode.media) > 0 and len(episode.media[0].parts) > 0:
+                count += 1
+                if not episode.isPlayed:
+                    yield episode.media[0].parts[0].file
 
     def process_movie(file):
-        # Process a movie file
+        """Process a movie file."""
         yield file.media[0].parts[0].file
 
     def fetch_user_watchlist(user):
         current_username = plex.myPlexAccount().title if user is None else user.title
-        
-
-        # Get all sections available for the user
         available_sections = [section.key for section in plex.library.sections()]
-        # Intersect available_sections and valid_sections
         filtered_sections = list(set(available_sections) & set(valid_sections))
 
-        # Skip if user's token is in the skip_watchlist list
         if user and user.get_token(plex.machineIdentifier) in skip_watchlist:
-            print(f"Skipping {current_username}'s watchlist media...")
             logging.info(f"Skipping {current_username}'s watchlist media...")
             return []
-        
-        print(f"Fetching {current_username}'s watchlist media...")
+
         logging.info(f"Fetching {current_username}'s watchlist media...")
         try:
-            #user_token = user.get_token(plex.machineIdentifier)
             watchlist = get_watchlist(PLEX_TOKEN, user)
             results = []
 
             for item in watchlist:
                 file = search_plex(plex, item.title)
-                if file is not None and (not filtered_sections or (file.librarySectionID in filtered_sections)):
+                if file and (not filtered_sections or (file.librarySectionID in filtered_sections)):
                     if file.TYPE == 'show':
                         results.extend(process_show(file, watchlist_episodes))
                     else:
                         results.extend(process_movie(file))
             return results
         except Exception as e:
-            print(f"Error fetching watchlist for {current_username}: {str(e)}")
             logging.error(f"Error fetching watchlist for {current_username}: {str(e)}")
             return []
 
     users_to_fetch = [None]  # Start with main user (None)
-
     if users_toggle:
         users_to_fetch += plex.myPlexAccount().users()
 
@@ -719,14 +714,12 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
                     break
                 except Exception as e:
                     if "429" in str(e):  # rate limit error
-                        print(f"Rate limit exceeded. Retrying in {DELAY} seconds...")
-                        sleep(DELAY)
+                        logging.warning(f"Rate limit exceeded. Retrying in {DELAY} seconds...")
+                        time.sleep(DELAY)
                         retries += 1
                     else:
-                        print(f"Error fetching watchlist media: {str(e)}")
                         logging.error(f"Error fetching watchlist media: {str(e)}")
                         break
-                
 
 # Function to fetch watched media files
 def get_watched_media(plex, valid_sections, last_updated, user=None):
