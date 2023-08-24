@@ -1303,9 +1303,9 @@ if watched_move:
             print(f"Error: {str(e)}")
 
 if debug: 
-        logging.info("Listing all files destined to cache")
-        for file in media_to_cache:
-            logging.info(file)
+    logging.info("Listing all files destined to cache")
+    for file in media_to_cache:
+        logging.info(file)
 
 # Moving the files to the cache drive
 try:
