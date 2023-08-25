@@ -1262,7 +1262,7 @@ if watched_move:
             logging.info("Fetching watched media...")
 
             # Get watched media from Plex server
-            fetched_media = get_watched_media(plex, valid_sections, last_updated, users_toggle=users_toggle)
+            fetched_media = get_watched_media(plex, valid_sections, last_updated, users_toggle)
             
             # Add fetched media to the current media set
             for file_path in fetched_media:
