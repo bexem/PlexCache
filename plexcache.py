@@ -725,38 +725,42 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
                         break
 
 # Function to fetch watched media files
-def get_watched_media(plex, valid_sections, last_updated, user=None):
-    def fetch_user_watched_media(plex_instance, username):
+def get_watched_media(plex, valid_sections, last_updated, users_toggle):
+    def fetch_user_watched_media(plex_instance, username, retries=0):
         try:
             print(f"Fetching {username}'s watched media...")
             logging.info(f"Fetching {username}'s watched media...")
-
             # Get all sections available for the user
             all_sections = [section.key for section in plex_instance.library.sections()]
-
             # Check if valid_sections is specified. If not, consider all available sections as valid.
             if 'valid_sections' in globals() and valid_sections:
                 available_sections = list(set(all_sections) & set(valid_sections))
             else:
                 available_sections = all_sections
-
             # Filter sections the user has access to
             user_accessible_sections = [section for section in available_sections if section in all_sections]
-
             for section_key in user_accessible_sections:
                 section = plex_instance.library.sectionByID(section_key)  # Get the section object using its key
-
                 # Search for videos in the section
                 for video in section.search(unwatched=False):
                     # Skip if the video was last viewed before the last_updated timestamp
                     if video.lastViewedAt and last_updated and video.lastViewedAt < datetime.fromtimestamp(last_updated):
                         continue
-
                     # Process the video and yield the file path
                     yield from process_video(video)
-        except Exception as e:
-            print(f"An error occurred in fetch_user_watched_media: {e}")
-            logging.error(f"An error occurred in fetch_user_watched_media: {e}")
+
+        except (BadRequest, NotFound) as e:
+            if "429" in str(e) and retries < RETRY_LIMIT:  # Rate limit exceeded
+                print(f"Rate limit exceeded. Retrying {retries + 1}/{RETRY_LIMIT}. Sleeping for {DELAY} seconds...")
+                logging.warning(f"Rate limit exceeded. Retrying {retries + 1}/{RETRY_LIMIT}. Sleeping for {DELAY} seconds...")
+                time.sleep(DELAY)
+                return fetch_user_watched_media(user_plex, username, retries + 1)
+            elif isinstance(e, NotFound):
+                print(f"Failed to switch to user {user.title if user else 'Unknown'}. Skipping...")
+                logging.warning(f"Failed to switch to user {user.title if user else 'Unknown'}. Skipping...")
+                return []
+            else:
+                raise e
 
     def process_video(video):
         if video.TYPE == 'show':
@@ -765,6 +769,7 @@ def get_watched_media(plex, valid_sections, last_updated, user=None):
                 yield from process_episode(episode)
         else:
             # Get the file path of the video
+            #if video.isPlayed:
             file_path = video.media[0].parts[0].file
             yield file_path
 
@@ -1262,7 +1267,7 @@ if watched_move:
             logging.info("Fetching watched media...")
 
             # Get watched media from Plex server
-            fetched_media = get_watched_media(plex, valid_sections, last_updated, users_toggle)
+            fetched_media = get_watched_media(plex, valid_sections, last_updated, users_toggle=users_toggle)
             
             # Add fetched media to the current media set
             for file_path in fetched_media:
