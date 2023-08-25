@@ -1262,7 +1262,7 @@ if watched_move:
             logging.info("Fetching watched media...")
 
             # Get watched media from Plex server
-            fetched_media = get_watched_media(plex, valid_sections, last_updated)
+            fetched_media = get_watched_media(plex, valid_sections, last_updated, users_toggle=users_toggle)
             
             # Add fetched media to the current media set
             for file_path in fetched_media:
@@ -1304,11 +1304,6 @@ if watched_move:
         else:
             logging.error(f"Error checking free space and moving media files to the cache: {str(e)}")
             print(f"Error: {str(e)}")
-
-if debug: 
-    logging.info("Listing all files destined to cache")
-    for file in media_to_cache:
-        logging.info(file)
 
 # Moving the files to the cache drive
 try:
