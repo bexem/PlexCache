@@ -1050,15 +1050,29 @@ def check_path_exists(path):
 
 # Function to move files, it executes the given move command   
 def move_file(move_cmd):
+    src, dest = move_cmd
     try:
-        # Move the file using the given move command
-        shutil.move(*move_cmd)
-        logging.info(f"Moved file from {move_cmd[0]} to {move_cmd[1]}")
+        if os_linux:
+            # Get the original owner and group of the file for Linux
+            stat_info = os.stat(src)
+            uid = stat_info.st_uid
+            gid = stat_info.st_gid
+
+            # Move the file
+            shutil.move(src, dest)
+
+            # Set the owner and group to the original values
+            os.chown(dest, uid, gid)
+        else:  # Windows logic
+            shutil.move(src, dest)
+            # For more granular Windows permissions, you'd use the win32security module here.
+
+        logging.info(f"Moved file from {src} to {dest} with original permissions and owner.")
         return 0
     except Exception as e:
-        # Log an error if there's an exception while moving the file
         logging.error(f"Error moving file: {str(e)}")
         return 1
+
 
 # Created the move command that gets executed from the function above
 def move_media_files(files, real_source, cache_dir, unraid, debug, destination, max_concurrent_moves_array, max_concurrent_moves_cache):
@@ -1130,12 +1144,40 @@ def get_move_command(destination, cache_file_name, user_path, user_file_name, ca
     move = None
     if destination == 'array':
         if not os.path.exists(user_path):  # Check if the user path doesn't exist
-            os.makedirs(user_path)  # Create the user path directory
+            if os_linux:
+                parent_dir = os.path.dirname(path)
+                # Get the permissions of the parent directory
+                mode = os.stat(parent_dir).st_mode & 0o777
+                # Get the owner and group of the parent directory
+                uid = os.stat(parent_dir).st_uid
+                gid = os.stat(parent_dir).st_gid
+                # Create the directory
+                os.makedirs(path, exist_ok=True)
+                # Set the permissions of the directory to match the parent
+                os.chmod(path, mode)
+                # Set the owner and group to match the parent
+                os.chown(path, uid, gid)
+            else:  # Windows logic
+                os.makedirs(path, exist_ok=True)
         if os.path.isfile(cache_file_name):  # Check if the cache file exists
             move = (cache_file_name, user_path)  # Set the move command to move the cache file to the user path
     if destination == 'cache':
         if not os.path.exists(cache_path):  # Check if the cache path doesn't exist
-            os.makedirs(cache_path)  # Create the cache path directory
+            if os_linux:
+                parent_dir = os.path.dirname(path)
+                # Get the permissions of the parent directory
+                mode = os.stat(parent_dir).st_mode & 0o777
+                # Get the owner and group of the parent directory
+                uid = os.stat(parent_dir).st_uid
+                gid = os.stat(parent_dir).st_gid
+                # Create the directory
+                os.makedirs(path, exist_ok=True)
+                # Set the permissions of the directory to match the parent
+                os.chmod(path, mode)
+                # Set the owner and group to match the parent
+                os.chown(path, uid, gid)
+            else:  # Windows logic
+                os.makedirs(path, exist_ok=True)
         if not os.path.isfile(cache_file_name):  # Check if the cache file doesn't exist
             move = (user_file_name, cache_path)  # Set the move command to move the user file to the cache path
     return move
