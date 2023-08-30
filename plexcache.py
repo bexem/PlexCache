@@ -4,11 +4,9 @@ from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from plexapi.server import PlexServer
-from plexapi.video import Episode
-from plexapi.video import Movie
 from plexapi.myplex import MyPlexAccount
-from plexapi.exceptions import NotFound
-from plexapi.exceptions import BadRequest
+from plexapi.video import Movie, Episode
+from plexapi.exceptions import NotFound, BadRequest
 
 print("*** PlexCache ***")
 
@@ -36,6 +34,12 @@ if os.path.exists(mover_cache_exclude_file):
 
 RETRY_LIMIT = 3
 DELAY = 5  # in seconds
+
+# Default permissions and owner variables
+# If any or all unset, the script will use the mssing values using the source file
+default_permissions = 0o666  # For example, 0o666 
+default_uid = None  # For example, 1001
+default_gid = None  # For example, 1001
 
 log_file_pattern = "plexcache_log_*.log"
 summary_messages = []
@@ -1069,23 +1073,18 @@ def check_path_exists(path):
 def move_file(move_cmd):
     src, dest = move_cmd
     try:
-        if os_linux:  # POSIX platform (Linux/Unix)
-            # Get the original owner and group of the file for Linux
-            stat_info = os.stat(src)
-            uid = stat_info.st_uid
-            gid = stat_info.st_gid
-            mode = stat_info.st_mode
-            # Copy the file first
-            shutil.move(src, dest)
+        if os_linux:
+            uid = default_uid if default_uid is not None else os.stat(src).st_uid
+            gid = default_gid if default_gid is not None else os.stat(src).st_gid
+            mode = default_permissions if default_permissions is not None else os.stat(src).st_mode
 
-            # Set the owner and group to the original values
+            shutil.move(src, dest)
             os.chown(dest, uid, gid)
-            os.chmod(dest, mode)
-        else:  # Windows logic
+            set_permissions(dest, mode)
+        else:
             shutil.move(src, dest)
-            # For more granular Windows permissions, you'd use the win32security module here.
-
-        logging.info(f"Moved file from {src} to {dest} with original permissions and owner.")
+        
+        logging.info(f"Moved file from {src} to {dest} with permissions and owner.")
         return 0
     except (FileNotFoundError, PermissionError, Exception) as e:
         logging.error(f"Error moving file: {str(e)}")
@@ -1156,42 +1155,56 @@ def get_cache_paths(file, real_source, cache_dir):
     
     return cache_path, cache_file_name
 
-# Helper function to create directory and set permissions
-def recursively_set_permissions(start_path, src=None):
-    if os_linux:  # POSIX platform (Linux/Unix)
-        # We'll walk up the tree to the root directory
-        parts = start_path.split(os.sep)
-        current_path = "/"
-        for part in parts:
-            if part:  # Skip the first empty part so we don't duplicate the root
-                current_path = os.path.join(current_path, part)
-                if src and os.path.exists(src):
-                    stat_info = os.stat(src)
-                else:
-                    stat_info = os.stat(current_path)
-                mode = stat_info.st_mode
-                uid = stat_info.st_uid
-                gid = stat_info.st_gid
-                os.chown(current_path, uid, gid)
-                os.chmod(current_path, mode)
-    else:  # Windows
-        # Here, you would handle setting Windows permissions if needed
-        pass
+def set_permissions(path, permissions):
+    try:
+        current_permissions = os.stat(path).st_mode
+        cleared_permissions = current_permissions & ~0o7777
+        new_permissions = cleared_permissions | permissions
+        os.chmod(path, new_permissions)
+        return 0
+    except Exception as e:
+        logging.error(f"Failed to set permissions: {e}")
+        return 1
 
-def create_directory_with_permissions(path, src=None):
+# Helper function to create directory and set permissions
+def recursively_set_permissions(start_path):
+    if os_linux:
+        parts = start_path.split(os.sep)
+
+        # Determine the base directory for permissions (either cache_dir or real_source)
+        if cache_dir in start_path:
+            current_base = cache_dir
+        elif real_source in start_path:
+            current_base = real_source
+        else:
+            current_base = "/"
+
+        # Walk up the directory tree from the base to apply permissions
+        for i, part in enumerate(parts):
+            if part:
+                if os.path.join(os.sep.join(parts[:i+1]), part).startswith(current_base):
+                    current_path = os.path.join(current_base, os.sep.join(parts[i:]))
+                    mode = default_permissions if default_permissions is not None else os.stat(current_path).st_mode
+                    uid = default_uid if default_uid is not None else os.stat(current_path).st_uid
+                    gid = default_gid if default_gid is not None else os.stat(current_path).st_gid
+
+                    os.chown(current_path, uid, gid)
+                    set_permissions(current_path, mode)
+
+def create_directory_with_permissions(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
-        recursively_set_permissions(path, src)
+        recursively_set_permissions(path)
 
 # Function to get the move command for the given file
 def get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path):
     move = None
     if destination == 'array':
-        create_directory_with_permissions(user_path, cache_path)
+        create_directory_with_permissions(user_path)
         if os.path.isfile(cache_file_name):
             move = (cache_file_name, user_path)
     elif destination == 'cache':
-        create_directory_with_permissions(cache_path, user_path)
+        create_directory_with_permissions(cache_path)
         if not os.path.isfile(cache_file_name):
             move = (user_file_name, cache_path)
     return move
