@@ -36,6 +36,7 @@ if os.path.exists(mover_cache_exclude_file):
 
 RETRY_LIMIT = 3
 DELAY = 5  # in seconds
+permissions= 0o777 
 
 log_file_pattern = "plexcache_log_*.log"
 summary_messages = []
@@ -1137,13 +1138,13 @@ def move_file(move_cmd):
             stat_info = os.stat(src)
             uid = stat_info.st_uid
             gid = stat_info.st_gid
-            mode = stat_info.st_mode
             # Move the file first
             shutil.move(src, dest)
-
-            # Set the owner and group to the original values
+            # Then set the owner and group to the original values
             os.chown(dest, uid, gid)
-            os.chmod(dest, mode)
+            original_umask = os.umask(0)
+            os.chmod(dest, permissions)
+            os.umask(original_umask)
         else:  # Windows logic
             shutil.move(src, dest)
             # For more granular Windows permissions, you'd use the win32security module here.
@@ -1163,11 +1164,12 @@ def create_directory_with_permissions(path, src_file_for_permissions):
             uid = stat_info.st_uid
             gid = stat_info.st_gid
             os.makedirs(path, exist_ok=True)
-            os.chmod(path, mode)
             os.chown(path, uid, gid)
+            original_umask = os.umask(0)
+            os.chmod(path, permissions)
+            os.umask(original_umask)
         else:  # Windows platform
             os.makedirs(path, exist_ok=True)
-            # Additional Windows-specific permission setting can go here
 
 #Function to get the move command for the given file
 def get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path):
