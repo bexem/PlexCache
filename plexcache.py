@@ -934,67 +934,72 @@ def get_total_size_of_files(files):
     return convert_bytes_to_readable_size(total_size_bytes)  # Convert the total size to a human-readable format
 
 # Function to filter the files, based on the destination
-def filter_files(files, destination, real_source, cache_dir, media_to_cache, files_to_skip):
-    # Log a message indicating that media files are being filtered for the specified destination
-    logging.info(f"Filtering media files {destination}...")
+def filter_files(files, destination, real_source, cache_dir, media_to_cache=None, files_to_skip=None):
+    logging.info(f"Filtering media files for {destination}...")
 
-    if not len(files_to_skip) == 0:
+    if files_to_skip:
+        # Assuming you have a function modify_file_paths() that returns modified file paths.
         files_to_skip = modify_file_paths(files_to_skip, plex_source, real_source, plex_library_folders, nas_library_folders)
 
     try:
-        # If media_to_cache is not provided, initialize it as an empty list
         if media_to_cache is None:
             media_to_cache = []
 
-        # Set to keep track of processed files
         processed_files = set()
-
-        # List to store media files based on the destination
         media_to = []
 
-        if files is None or len(files) == 0:
+        if not files:
             return []
 
-        # Iterate over each file
         for file in files:
-            # If the file has already been processed, skip to the next file
-            if file in processed_files or file in files_to_skip:
+            if file in processed_files or (files_to_skip and file in files_to_skip):
                 continue
-
-            # Add the file to the set of processed files
             processed_files.add(file)
 
-            # Get the cache file name using the file's path, real_source, and cache_dir
             cache_file_name = get_cache_paths(file, real_source, cache_dir)[1]
 
-            # Check the destination and decide whether to add the file to media_to list
-            if destination == 'array' and should_add_to_array(file, cache_file_name, media_to_cache):
-                media_to.append(file)
-                logging.info(f"Adding file to array: {file}")
-            elif destination == 'cache' and should_add_to_cache(cache_file_name):
-                media_to.append(file)
-                logging.info(f"Adding file to cache: {file}")
+            if destination == 'array':
+                if should_add_to_array(file, cache_file_name, media_to_cache):
+                    media_to.append(file)
+                    logging.info(f"Adding file to array: {file}")
 
-        # Return the filtered media files for the destination or an empty list
+            elif destination == 'cache':
+                if should_add_to_cache(file, cache_file_name):
+                    media_to.append(file)
+                    logging.info(f"Adding file to cache: {file}")
+
         return media_to or []
 
     except Exception as e:
-        # Log an error if an exception occurs during the filtering process
         logging.error(f"Error occurred while filtering media files: {str(e)}")
         return []
 
-# Check if the file is already present in the array
+# Revised function
 def should_add_to_array(file, cache_file_name, media_to_cache):
-    # If the file is in media_to_cache or the cache file doesn't exist, return False
-    if file in media_to_cache or not os.path.isfile(cache_file_name):
-        if file in media_to_cache:
-            logging.info(f"File '{file}' was not added to the array because it's already scheduled to be moved to the cache (found in 'media_to_cache'). Skipped for now.")
+    if file in media_to_cache:
         return False
+
+    array_file = file.replace("/mnt/user/", "/mnt/user0/", 1) if unraid else file
+
+    if os.path.isfile(array_file):
+        # File already exists in the array
+        if os.path.isfile(cache_file_name):
+            os.remove(cache_file_name)
+            logging.info(f"Removed cache version of file: {cache_file_name}")
+        return False  # No need to add to array
     return True  # Otherwise, the file should be added to the array
 
-# Check if the file is already present in the cache
-def should_add_to_cache(cache_file_name):
-    return not os.path.isfile(cache_file_name)  # Return True if the cache_file_name is not a file (i.e., it does not exist in the cache), False otherwise
+# Revised function
+def should_add_to_cache(file, cache_file_name):
+    array_file = file.replace("/mnt/user/", "/mnt/user0/", 1) if unraid else file
+
+    if os.path.isfile(cache_file_name) and os.path.isfile(array_file):
+        # Uncomment the following line if you want to remove the array version when the file exists in the cache
+        os.remove(array_file)
+        logging.info(f"Removed array version of file: {array_file}")
+        return False
+    return not os.path.isfile(cache_file_name)
+
 
 # Check for free space before executing moving process
 def check_free_space_and_move_files(media_files, destination, real_source, cache_dir, unraid, debug):
@@ -1057,22 +1062,18 @@ def move_file(move_cmd):
             stat_info = os.stat(src)
             uid = stat_info.st_uid
             gid = stat_info.st_gid
-
             # Move the file
             shutil.move(src, dest)
-
             # Set the owner and group to the original values
             os.chown(dest, uid, gid)
         else:  # Windows logic
             shutil.move(src, dest)
-            # For more granular Windows permissions, you'd use the win32security module here.
-
+            # For more granular Windows permissions, remember you'd use the win32security module here.
         logging.info(f"Moved file from {src} to {dest} with original permissions and owner.")
         return 0
     except Exception as e:
         logging.error(f"Error moving file: {str(e)}")
         return 1
-
 
 # Created the move command that gets executed from the function above
 def move_media_files(files, real_source, cache_dir, unraid, debug, destination, max_concurrent_moves_array, max_concurrent_moves_cache):
@@ -1139,47 +1140,33 @@ def get_cache_paths(file, real_source, cache_dir):
     
     return cache_path, cache_file_name
 
+# Helper function to create directory and set permissions
+def create_directory_with_permissions(path, src_file_for_permissions):
+    if not os.path.exists(path):
+        if os_linux:  # POSIX platform (Linux/Unix)
+            # Get the permissions of the source file
+            stat_info = os.stat(src_file_for_permissions)
+            mode = stat_info.st_mode
+            uid = stat_info.st_uid
+            gid = stat_info.st_gid
+            os.makedirs(path, exist_ok=True)
+            os.chmod(path, mode)
+            os.chown(path, uid, gid)
+        else:  # Windows platform
+            os.makedirs(path, exist_ok=True)
+            # Additional Windows-specific permission setting can go here
+
 # Function to get the move command for the given file
 def get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path):
     move = None
     if destination == 'array':
-        if not os.path.exists(user_path):  # Check if the user path doesn't exist
-            if os_linux:
-                parent_dir = os.path.dirname(path)
-                # Get the permissions of the parent directory
-                mode = os.stat(parent_dir).st_mode & 0o777
-                # Get the owner and group of the parent directory
-                uid = os.stat(parent_dir).st_uid
-                gid = os.stat(parent_dir).st_gid
-                # Create the directory
-                os.makedirs(path, exist_ok=True)
-                # Set the permissions of the directory to match the parent
-                os.chmod(path, mode)
-                # Set the owner and group to match the parent
-                os.chown(path, uid, gid)
-            else:  # Windows logic
-                os.makedirs(path, exist_ok=True)
-        if os.path.isfile(cache_file_name):  # Check if the cache file exists
-            move = (cache_file_name, user_path)  # Set the move command to move the cache file to the user path
-    if destination == 'cache':
-        if not os.path.exists(cache_path):  # Check if the cache path doesn't exist
-            if os_linux:
-                parent_dir = os.path.dirname(path)
-                # Get the permissions of the parent directory
-                mode = os.stat(parent_dir).st_mode & 0o777
-                # Get the owner and group of the parent directory
-                uid = os.stat(parent_dir).st_uid
-                gid = os.stat(parent_dir).st_gid
-                # Create the directory
-                os.makedirs(path, exist_ok=True)
-                # Set the permissions of the directory to match the parent
-                os.chmod(path, mode)
-                # Set the owner and group to match the parent
-                os.chown(path, uid, gid)
-            else:  # Windows logic
-                os.makedirs(path, exist_ok=True)
-        if not os.path.isfile(cache_file_name):  # Check if the cache file doesn't exist
-            move = (user_file_name, cache_path)  # Set the move command to move the user file to the cache path
+        create_directory_with_permissions(user_path, cache_file_name)
+        if os.path.isfile(cache_file_name):
+            move = (cache_file_name, user_path)
+    elif destination == 'cache':
+        create_directory_with_permissions(cache_path, user_file_name)
+        if not os.path.isfile(cache_file_name):
+            move = (user_file_name, cache_path)
     return move
 
 # Function to execute the given move commands
