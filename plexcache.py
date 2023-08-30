@@ -1074,6 +1074,7 @@ def move_file(move_cmd):
     src, dest = move_cmd
     try:
         if os_linux:
+            original_umask = os.umask(0)
             uid = default_uid if default_uid is not None else os.stat(src).st_uid
             gid = default_gid if default_gid is not None else os.stat(src).st_gid
             mode = default_permissions if default_permissions is not None else os.stat(src).st_mode
@@ -1085,6 +1086,7 @@ def move_file(move_cmd):
             shutil.move(src, dest)
         
         logging.info(f"Moved file from {src} to {dest} with permissions and owner.")
+        os.umask(original_umask)
         return 0
     except (FileNotFoundError, PermissionError, Exception) as e:
         logging.error(f"Error moving file: {str(e)}")
@@ -1172,9 +1174,9 @@ def recursively_set_permissions(start_path):
         parts = start_path.split(os.sep)
 
         # Determine the base directory for permissions (either cache_dir or real_source)
-        if cache_dir in start_path:
+        if cache_dir and cache_dir in start_path:
             current_base = cache_dir
-        elif real_source in start_path:
+        elif real_source and real_source in start_path:
             current_base = real_source
         else:
             current_base = "/"
@@ -1187,14 +1189,15 @@ def recursively_set_permissions(start_path):
                     mode = default_permissions if default_permissions is not None else os.stat(current_path).st_mode
                     uid = default_uid if default_uid is not None else os.stat(current_path).st_uid
                     gid = default_gid if default_gid is not None else os.stat(current_path).st_gid
-
                     os.chown(current_path, uid, gid)
                     set_permissions(current_path, mode)
 
 def create_directory_with_permissions(path):
+    original_umask = os.umask(0)  # Store the original umask and set new umask
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
         recursively_set_permissions(path)
+    os.umask(original_umask)  # Reset umask to original value
 
 # Function to get the move command for the given file
 def get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path):
