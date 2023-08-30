@@ -30,9 +30,12 @@ webhook_headers = {} # Leave empty for Discord, otherwise edit it accordingly. (
 settings_filename = os.path.join(script_folder, "plexcache_settings.json")
 watchlist_cache_file = Path(os.path.join(script_folder, "plexcache_watchlist_cache.json"))
 watched_cache_file = Path(os.path.join(script_folder, "plexcache_watched_cache.json"))
+mover_cache_exclude_file = Path(os.path.join(script_folder, "plexcache_mover_files_to_exclude.txt"))
+if os.path.exists(mover_cache_exclude_file):
+    os.remove(mover_cache_exclude_file)  # Remove the existing 
 
 RETRY_LIMIT = 3
-DELAY = 15  # in seconds
+DELAY = 5  # in seconds
 
 log_file_pattern = "plexcache_log_*.log"
 summary_messages = []
@@ -947,6 +950,7 @@ def filter_files(files, destination, real_source, cache_dir, media_to_cache=None
 
         processed_files = set()
         media_to = []
+        cache_files_to_exclude = []
 
         if not files:
             return []
@@ -955,9 +959,11 @@ def filter_files(files, destination, real_source, cache_dir, media_to_cache=None
             if file in processed_files or (files_to_skip and file in files_to_skip):
                 continue
             processed_files.add(file)
-
+            
             cache_file_name = get_cache_paths(file, real_source, cache_dir)[1]
-
+            # Get the cache file name using the file's path, real_source, and cache_dir
+            cache_files_to_exclude.append(cache_file_name)
+            
             if destination == 'array':
                 if should_add_to_array(file, cache_file_name, media_to_cache):
                     media_to.append(file)
@@ -968,13 +974,17 @@ def filter_files(files, destination, real_source, cache_dir, media_to_cache=None
                     media_to.append(file)
                     logging.info(f"Adding file to cache: {file}")
 
+        if unraid:
+            with open(mover_cache_exclude_file, "w") as file:
+                for item in cache_files_to_exclude:
+                    file.write(str(item) + "\n")
+
         return media_to or []
 
     except Exception as e:
         logging.error(f"Error occurred while filtering media files: {str(e)}")
         return []
 
-# Revised function
 def should_add_to_array(file, cache_file_name, media_to_cache):
     if file in media_to_cache:
         return False
@@ -1141,30 +1151,41 @@ def get_cache_paths(file, real_source, cache_dir):
     return cache_path, cache_file_name
 
 # Helper function to create directory and set permissions
-def create_directory_with_permissions(path, src_file_for_permissions):
+def recursively_set_permissions(start_path, src=None):
+    if os_linux:  # POSIX platform (Linux/Unix)
+        # We'll walk up the tree to the root directory
+        parts = start_path.split(os.sep)
+        current_path = "/"
+        for part in parts:
+            if part:  # Skip the first empty part so we don't duplicate the root
+                current_path = os.path.join(current_path, part)
+                if src and os.path.exists(src):
+                    stat_info = os.stat(src)
+                else:
+                    stat_info = os.stat(current_path)
+                mode = stat_info.st_mode
+                uid = stat_info.st_uid
+                gid = stat_info.st_gid
+                os.chown(current_path, uid, gid)
+                os.chmod(current_path, mode)
+    else:  # Windows
+        # Here, you would handle setting Windows permissions if needed
+        pass
+
+def create_directory_with_permissions(path, src=None):
     if not os.path.exists(path):
-        if os_linux:  # POSIX platform (Linux/Unix)
-            # Get the permissions of the source file
-            stat_info = os.stat(src_file_for_permissions)
-            mode = stat_info.st_mode
-            uid = stat_info.st_uid
-            gid = stat_info.st_gid
-            os.makedirs(path, exist_ok=True)
-            os.chmod(path, mode)
-            os.chown(path, uid, gid)
-        else:  # Windows platform
-            os.makedirs(path, exist_ok=True)
-            # Additional Windows-specific permission setting can go here
+        os.makedirs(path, exist_ok=True)
+        recursively_set_permissions(path, src)
 
 # Function to get the move command for the given file
 def get_move_command(destination, cache_file_name, user_path, user_file_name, cache_path):
     move = None
     if destination == 'array':
-        create_directory_with_permissions(user_path, cache_file_name)
+        create_directory_with_permissions(user_path, cache_path)
         if os.path.isfile(cache_file_name):
             move = (cache_file_name, user_path)
     elif destination == 'cache':
-        create_directory_with_permissions(cache_path, user_file_name)
+        create_directory_with_permissions(cache_path, user_path)
         if not os.path.isfile(cache_file_name):
             move = (user_file_name, cache_path)
     return move
