@@ -487,6 +487,8 @@ media_to = []
 media_to_cache = []
 media_to_array = []
 move_commands = []
+skip_cache = "--skip-cache" in sys.argv
+debug = "--debug" in sys.argv
 
 # Connect to the Plex server
 try:
@@ -1067,21 +1069,25 @@ def check_path_exists(path):
 def move_file(move_cmd):
     src, dest = move_cmd
     try:
-        if os_linux:
+        if os_linux:  # POSIX platform (Linux/Unix)
             # Get the original owner and group of the file for Linux
             stat_info = os.stat(src)
             uid = stat_info.st_uid
             gid = stat_info.st_gid
-            # Move the file
+            mode = stat_info.st_mode
+            # Copy the file first
             shutil.move(src, dest)
+
             # Set the owner and group to the original values
             os.chown(dest, uid, gid)
+            os.chmod(dest, mode)
         else:  # Windows logic
             shutil.move(src, dest)
-            # For more granular Windows permissions, remember you'd use the win32security module here.
+            # For more granular Windows permissions, you'd use the win32security module here.
+
         logging.info(f"Moved file from {src} to {dest} with original permissions and owner.")
         return 0
-    except Exception as e:
+    except (FileNotFoundError, PermissionError, Exception) as e:
         logging.error(f"Error moving file: {str(e)}")
         return 1
 
@@ -1243,8 +1249,6 @@ media_to_cache = modify_file_paths(media_to_cache, plex_source, real_source, ple
 
 # Fetches subtitles for the above fetched media
 media_to_cache.extend(get_media_subtitles(media_to_cache, files_to_skip=files_to_skip))
-
-skip_cache = "--skip-cache" in sys.argv
 
 # Watchlist logic:
 # It will check if there is internet connection as plexapi requires to use a method which uses their server rather than plex
