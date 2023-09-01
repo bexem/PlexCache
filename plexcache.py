@@ -1163,9 +1163,9 @@ def create_directory_with_permissions(path, src_file_for_permissions):
             mode = stat_info.st_mode
             uid = stat_info.st_uid
             gid = stat_info.st_gid
+            original_umask = os.umask(0)
             os.makedirs(path, exist_ok=True)
             os.chown(path, uid, gid)
-            original_umask = os.umask(0)
             os.chmod(path, permissions)
             os.umask(original_umask)
         else:  # Windows platform
@@ -1346,10 +1346,10 @@ if watched_move:
         check_free_space_and_move_files(media_to_array, 'array', real_source, cache_dir, unraid, debug)
     except Exception as e:
         if not debug:
-            logging.critical(f"Error checking free space and moving media files to the cache: {str(e)}")
+            logging.critical(f"Error checking free space and moving media files to the array: {str(e)}")
             exit(f"Error: {str(e)}")
         else:
-            logging.error(f"Error checking free space and moving media files to the cache: {str(e)}")
+            logging.error(f"Error checking free space and moving media files to the array: {str(e)}")
             print(f"Error: {str(e)}")
 
 # Moving the files to the cache drive
