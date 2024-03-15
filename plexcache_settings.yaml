@@ -1,0 +1,42 @@
+cache_dir: /mnt/cache/
+cache_watched_expiry: 48
+cache_watchlist_expiry: 1
+exit_if_active_session: false
+log_folder: /Users/bexem/Projects/plexautocache/logs
+log_level: INFO
+max_concurrent_moves_array: 2
+max_concurrent_moves_cache: 5
+mover_ignore_list_file: ''
+nas_folder_libraries:
+- movies
+- anime
+- tvseries
+nas_folder_root: /mnt/user/
+nas_to_plex_folder_libraries: {
+    "tv": "tvseries",
+    "movies": "movies",
+    "anime": "anime"
+}
+plex_libraries_allowed:
+- 1
+- 4
+- 2
+plex_library_folders:
+- movies
+- anime
+- tvseries
+plex_media_age: 99
+plex_ondeck_n_episodes: 5
+plex_ondeck_users: true
+plex_source: /media/
+plex_token: tkVEY3s2xZD5ckzhUySP
+plex_url: https://plex.bexem.xyz
+plex_users_skip_ondeck: []
+plex_users_skip_watchlist: []
+plex_watched: false
+plex_watchlist: false
+plex_watchlist_n_episodes: 0
+plex_watchlist_users: false
+plexapi_delay: 15
+plexapi_retry_limit: 3
+summary_message: false
