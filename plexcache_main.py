@@ -109,16 +109,16 @@ def main():
 
     print("Initial steps done, now executing rest of the main function...")
 
-    print(f"Settings file: {settings_filename}")
-    print(f"Logs: {settings.log_folder}")
-    print(f"Current OS: {settings.os_type}")
+    print(f"Settings file: {plexcache_settings_filename}")
+    print(f"Logs: {plexcache_settings.log_folder}")
+    print(f"Current OS: {plexcache_settings.os_type}")
     print(f"Current script folder: {script_folder}")
-    print(f"Current log folder: {settings.log_folder}")
+    print(f"Current log folder: {plexcache_settings.log_folder}")
 
     if not settings.mover_ignore_list_file == '':
-        print(f"Current mover ignore list file: {settings.log_folder}")
+        print(f"Current mover ignore list file: {plexcache_settings.log_folder}")
     elif settings.mover_ignore_list_file.startswith("plexcache"):
-        print(f"Appending list to mover ignore list file: {settings.log_folder}")
+        print(f"Appending list to mover ignore list file: {plexcache_settings.log_folder}")
     else:
         print("You don't have the mover ignore list setup")
 

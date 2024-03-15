@@ -12,11 +12,10 @@ nas_folder_libraries:
 - anime
 - tvseries
 nas_folder_root: /mnt/user/
-nas_to_plex_folder_libraries: {
-    "tv": "tvseries",
-    "movies": "movies",
-    "anime": "anime"
-}
+nas_to_plex_folder_libraries:
+    tvseries: tvseries
+    movies: movies
+    anime: anime
 plex_libraries_allowed:
 - 1
 - 4

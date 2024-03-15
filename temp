@@ -1,0 +1,69 @@
+
+3. Merge `get_paths` and `get_cache_paths` into a single function:
+   - Create a new function called `get_file_paths` that takes the file path, real source directory, cache directory, and a boolean parameter indicating whether to get the user path or cache path.
+   - Inside the function, calculate the user path and cache path based on the provided parameters.
+   - Return the user path, cache path, cache file name, and user file name as a tuple.
+   - Update the code to use the new `get_file_paths` function instead of calling the individual functions separately.
+
+4. Optimize the `filter_files` function:
+   - Move the `modify_file_paths` function call for `files_to_skip` outside the loop to avoid unnecessary function calls.
+   - Use a set instead of a list for `processed_files` to improve membership checking performance.
+   - Consider using a set for `media_to_cache` as well if order is not important.
+
+5. Combine `should_add_to_array` and `should_add_to_cache` into a single function:
+   - Create a new function called `should_add_to_destination` that takes the file path, cache file name, media_to_cache, and destination as parameters.
+   - Inside the function, check the destination and call the appropriate logic from `should_add_to_array` or `should_add_to_cache`.
+   - Update the code in the `filter_files` function to use the new `should_add_to_destination` function.
+
+6. Optimize the `get_media_subtitles` function:
+   - Use a set instead of a list for `processed_files` to improve membership checking performance.
+   - Consider using a set for `all_media_files` as well if order is not important.
+
+7. Merge `process_episode_ondeck` and `process_movie_ondeck` into a single function:
+   - Create a new function called `process_ondeck_media` that takes the video object and on_deck_files as parameters.
+   - Inside the function, check the type of the video object (episode or movie) and call the appropriate logic from `process_episode_ondeck` or `process_movie_ondeck`.
+   - Update the code in the `fetch_on_deck_media` function to use the new `process_ondeck_media` function.
+
+These are the main areas where you can optimize and merge/combine functions to improve your code. I recommend implementing these changes step by step and testing the code thoroughly after each modification to ensure everything still works as expected.
+
+Remember to update the function calls throughout your code to reflect the changes made to the function names and parameters.
+
+Let me know if you have any further questions or if you need assistance with implementing these optimizations!
+
+
+Apologies for the oversight. Let me take another look at the media handling functions to see if there are any optimization opportunities.
+After reviewing the media handling functions again, I have identified a couple of areas where you can potentially optimize the code:
+Optimize the get_watched_media function:
+Instead of using multiple if statements to check the media type and whether the video is played, you can use a single if statement with logical operators.
+For example, you can combine the conditions like this:
+python
+
+Copy code
+if video.TYPE == 'show' and video.isPlayed:
+    for episode in video.episodes():
+        yield from process_episode(episode)
+elif video.TYPE != 'show' and video.isPlayed:
+    file_path = video.media[0].parts[0].file
+    yield file_path
+This reduces the number of conditional checks and improves readability.
+Optimize the fetch_watchlist_media function:
+Similar to the get_watched_media function, you can combine the conditions for checking the media type and whether the file exists in a single if statement.
+For example:
+python
+
+Copy code
+if file and (file.TYPE == 'show' or file.TYPE == 'movie') and (not filtered_sections or (file.librarySectionID in filtered_sections)):
+    if file.TYPE == 'show':
+        results.extend(process_show(file, watchlist_episodes))
+    else:
+        results.extend(process_movie(file))
+This reduces the number of conditional checks and improves readability.
+Consider using a set instead of a list for media_to_cache and media_to_array:
+If the order of the media files is not important, you can use a set instead of a list for media_to_cache and media_to_array.
+Sets provide faster membership checking and eliminate duplicates automatically.
+To make this change, initialize media_to_cache and media_to_array as empty sets (set()) instead of empty lists ([]).
+Update the code that extends these variables to use the update() method instead of extend().
+Make sure to convert the sets back to lists when needed, such as when saving to the cache files or passing them to functions that expect lists.
+These optimizations can help improve the performance and readability of the media handling functions. However, please note that the impact of these optimizations may vary depending on the size of your media library and the specific use case.
+As always, make sure to test the code thoroughly after making any changes to ensure that the functionality remains intact.
+Let me know if you have any further questions or if there's anything else I can assist you with!
